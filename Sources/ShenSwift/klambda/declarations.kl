@@ -1,0 +1,25 @@
+(defun datatypes () (map (lambda Z904 (shen.typename Z904)) (value shen.*alldatatypes*)))
+
+(defun shen.included () (map (lambda Z905 (shen.typename Z905)) (value shen.*datatypes*)))
+
+(defun shen.typename (V908) (cond ((cons? V908) (intern (shen.typename-h (str (hd V908))))) (true (shen.f-error shen.typename))))
+
+(defun shen.typename-h (V909) (cond ((= "#type" V909) "") ((shen.+string? V909) (cn (hdstr V909) (shen.typename-h (tlstr V909)))) (true (shen.f-error shen.typename-h))))
+
+(defun prolog-memory (V910) (if (< V910 0) (value shen.*prolog-memory*) (if (integer? V910) (set shen.*prolog-memory* V910) (simple-error "prolog memory expects an integer value
+"))))
+
+(defun arity (V911) (trap-error (get V911 arity (value *property-vector*)) (lambda Z912 -1)))
+
+(defun shen.initialise-arity-table (V915) (cond ((= () V915) ()) ((and (cons? V915) (cons? (tl V915))) (let W916 (put (hd V915) arity (hd (tl V915)) (value *property-vector*)) (shen.initialise-arity-table (tl (tl V915))))) (true (simple-error "implementation error in shen.initialise-arity-table"))))
+
+(defun systemf (V917) (let W918 (get shen shen.external-symbols (value *property-vector*)) (let W919 (put shen shen.external-symbols (adjoin V917 W918) (value *property-vector*)) V917)))
+
+(defun adjoin (V920 V921) (if (element? V920 V921) V921 (cons V920 V921)))
+
+(defun shen.lambda-entry (V922) (let W923 (arity V922) (if (or (= W923 -1) (= W923 0)) () (cons V922 (eval-kl (shen.lambda-function (cons V922 ()) W923))))))
+
+(defun shen.set-lambda-form-entry (V924) (cond ((cons? V924) (put (hd V924) shen.lambda-form (tl V924) (value *property-vector*))) (true (shen.f-error shen.set-lambda-form-entry))))
+
+(defun shen.build-lambda-table (V925) (let W926 (map (lambda Z927 (shen.lambda-entry Z927)) V925) (shen.for-each (lambda Z928 (shen.set-lambda-form-entry Z928)) (cons (cons shen.tuple (lambda Z929 (shen.tuple Z929))) (cons (cons shen.pvar (lambda Z930 (shen.pvar Z930))) (cons (cons shen.dictionary (lambda Z931 (shen.dictionary Z931))) (cons (cons shen.print-prolog-vector (lambda Z932 (shen.print-prolog-vector Z932))) (cons (cons shen.print-freshterm (lambda Z933 (shen.print-freshterm Z933))) (cons (cons shen.printF (lambda Z934 (shen.printF Z934))) W926)))))))))
+

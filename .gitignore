@@ -1,0 +1,14 @@
+# SwiftPM build products
+/.build/
+.build/
+/.swiftpm/
+.swiftpm/
+
+# Xcode / DerivedData
+*.xcodeproj
+DerivedData/
+*.dSYM/
+*.dSYM
+
+# macOS
+.DS_Store
