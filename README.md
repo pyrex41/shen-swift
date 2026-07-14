@@ -3,10 +3,21 @@
 A from-scratch port of the [Shen programming language](https://shenlanguage.org)
 to Swift, designed to run on macOS **and iOS**.
 
-It is a **tree-walking KLambda interpreter**: it loads the unmodified
-ShenOSKernel-41.2 `.kl` sources at runtime and interprets them. Because nothing
-is compiled or code-generated on device, it runs inside the iOS sandbox (no JIT,
-no `dlopen`, no runtime `swiftc`), and supports live `(define ...)` at the REPL.
+It is a **tree-walking KLambda interpreter**: it loads Mark Tarver's refreshed
+**S41.2** `.kl` sources at runtime and interprets them (the 15 files are vendored
+verbatim under `Sources/ShenSwift/klambda/` — see its `PROVENANCE.md`). Because
+nothing is compiled or code-generated on device, it runs inside the iOS sandbox
+(no JIT, no `dlopen`, no runtime `swiftc`), and supports live `(define ...)` at
+the REPL.
+
+> **Kernel note.** Upstream reused the version string "41.2" for a *restructured*
+> kernel (different lineage from the community `ShenOSKernel-41.2` this port used
+> before). It drops `init.kl`/`dict.kl`/`stlib.kl` and the community
+> `extension-*.kl`, and adds a `cl.*` Common-Lisp backend (`backend.kl`, inert
+> here). There is no longer a `shen.initialise`: the runtime is set up by
+> top-level forms in `declarations.kl` and `types.kl`, so `boot()` loads in two
+> phases (intern every defun, then run the top-level forms with declarations
+> ahead of types). See `PROVENANCE.md` for the full delta.
 
 ## Architecture
 
@@ -27,8 +38,8 @@ no `dlopen`, no runtime `swiftc`), and supports live `(define ...)` at the REPL.
 | `Interp.swift` | Trampolined evaluator, special forms, currying/partial application |
 | `Primitives.swift` | The ~46 KLambda primitives + standard streams |
 | `Printer.swift` | `str` and value formatting |
-| `Boot.swift` | Kernel load order, environment init, native overrides, public API |
-| `klambda/` | Bundled ShenOSKernel-41.2 `.kl` sources (resource) |
+| `Boot.swift` | Two-phase kernel load, environment init, native overrides, native CLI launcher, public API |
+| `klambda/` | Bundled refreshed S41.2 `.kl` sources (resource) — see `klambda/PROVENANCE.md` |
 
 ### Key design points
 
@@ -68,8 +79,10 @@ try shen.runREPL()              // or drive it yourself
 
 ## CLI
 
-shen-swift drives the kernel's standard launcher (`shen.x.launcher.main`), so
-its command surface matches shen-go / shen-rust / shen-julia / ShenScript:
+The refreshed kernel no longer ships the community `extension-launcher.kl`, so
+shen-swift provides the launcher **natively** (`Interp.runLauncher`, driving the
+kernel's own `eval` / `read-from-string` / `load`). Its command surface still
+matches shen-go / shen-rust / shen-julia / ShenScript:
 
 ```sh
 shen-swift                      # interactive REPL
@@ -84,20 +97,23 @@ behave like shen-go/shen-julia.
 
 ## Status
 
-- Boots the full unmodified 41.2 kernel and runs an interactive REPL.
-- Passes the kernel test suite (`cl-source/.../tests/runme.shen`) — **35/35
-  report groups, 100%**.
-- **Bifrost**: registered as the 8th impl; passes all **30/30** cross-port
-  conformance cases (`bifrost.py --impls shen-swift`).
-- **Ratatoskr**: both a verified stage-1 **host** and a stage-2 **target**.
-  As a host, shaking a program with shen-swift produces a **byte-identical
-  `kernel.kl` + manifest** vs. the shen-cl reference. As a target,
-  `ratatoskr run --target swift prog.shen out/` builds a slice + `run`
-  launcher that drives this interpreter in `--shaken` mode: because shen-swift
-  *interprets* KL (nothing to code-generate), the artifact is the shaken slice
-  itself and the win is boot speed — a ~200-line shaken kernel instead of the
-  full ~2500-line kernel. Load order mirrors the Scheme/Lua builders (defuns →
-  native overrides → `(shen.initialise)` → top-level forms). Verified
-  byte-identical with the other ports under `bifrost --shake`.
+- Boots the refreshed **S41.2** kernel (all 15 KLambda files) in ~1 s and runs
+  an interactive REPL. `(value *version*)` reports `"41.2"`.
+- Passes the Swift test target (`swift test`) — **12/12**, including the
+  kernel-boot test (`define`, `reverse`, tail recursion, type signatures).
+- Passes the canonical **kerneltests** suite — **134/134, 100%** (`script
+  runme.shen` over `harness.shen` + `kerneltests.shen` from the refreshed
+  kernel's own Test Programs; ~133 s). This is the full type-checker exercise,
+  so it also covers the `shen.demod` synonym-redefinition path (late-bound here;
+  no AOT dispatch to pin an old definition).
+- CLI verified by hand against the refreshed kernel: `--version`, `--help`,
+  `eval -e/-l/-q/-r`, `script <file>`, and the bare/`repl` interactive loop.
+- **Ratatoskr** stage-2 target verified against the refreshed kernel: shaking
+  `tests/fib.shen` (ratatoskr `kernel/tarver-s41-refresh-20260711`, commit
+  `8ae561a`) and driving the resulting slice through `--shaken` prints
+  `fib 20 = 6765`. The slice is a genuine refresh-kernel slice
+  (`kernel-version=41.2-s41r.20260711`, 54 defuns) carrying a synthesised
+  `shen.initialise`, which `bootShaken` invokes via its guard. Ratatoskr PR #10
+  additionally certified byte-identical parity across four targets.
 - Phase 2 (planned): iOS SwiftUI app target; optional AOT compiler for hot
   paths; native dict/hash overrides per the Shen port performance notes.
