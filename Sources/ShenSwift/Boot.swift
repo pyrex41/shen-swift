@@ -66,7 +66,12 @@ extension Interp {
     /// declarations.kl (correct for compiling .shen, wrong for loading compiled
     /// .kl into a fresh image). So we intern every file's defuns first, then run
     /// the collected top-level forms with declarations.kl ahead of types.kl.
-    public func boot(verbose: Bool = false) throws {
+    ///
+    /// When `stdlib` is true, the standard library is loaded from Shen source
+    /// after the kernel is up (see `loadStdlib`). It is off by default: the
+    /// kernel alone boots in ~1 s, whereas compiling the stdlib sources in this
+    /// tree-walking interpreter takes ~25 s (a one-time cost — see `loadStdlib`).
+    public func boot(verbose: Bool = false, stdlib: Bool = false) throws {
         let dir = try resolveKLDirectory()
         installGlobals()
 
@@ -95,6 +100,57 @@ extension Interp {
 
         // Re-assert the port-identity globals the kernel overwrites while
         // loading (declarations.kl sets *home-directory* to "").
+        installGlobals()
+
+        if stdlib { try loadStdlib(verbose: verbose) }
+    }
+
+    /// Resolves the directory holding the bundled StLib `.shen` sources.
+    func resolveStdlibDirectory() throws -> URL {
+        if let dir = stdlibDirectory { return dir }
+        if let url = Bundle.module.url(forResource: "stlib", withExtension: nil) {
+            return url
+        }
+        throw KLError("cannot locate the bundled stlib directory")
+    }
+
+    /// Loads Mark Tarver's standard library from Shen source, on top of an
+    /// already-booted kernel.
+    ///
+    /// Since S41.2 the stdlib is no longer part of the kernel (there is no
+    /// `stlib.kl`); it ships as lazy Shen sources under upstream `Lib/StLib`
+    /// (mirror `pyrex41/shen-upstream`, tag `s41.2-pristine-20260711`). Those
+    /// sources are vendored under `stlib/` and driven by upstream's own
+    /// `install.shen`, which loads each module in dependency order (toggling
+    /// `tc`/`factorise` as it goes) and finally declares every external stdlib
+    /// symbol as a system function.
+    ///
+    /// This is a **tree-walking interpreter**, so the stdlib is compiled from
+    /// source at load time rather than loaded as precompiled KL. That costs
+    /// ~25 s and is why it is opt-in (the `--stdlib` CLI flag / `boot(stdlib:)`)
+    /// rather than part of every boot. Bundle cost is only the ~60 KB of Shen
+    /// sources, which matters for the iOS target.
+    public func loadStdlib(verbose: Bool = false) throws {
+        let dir = try resolveStdlibDirectory()
+        if verbose { FileHandle.standardError.write(Data("loading stdlib from \(dir.path)\n".utf8)) }
+        // The kernel's read-file opens paths relative to the process working
+        // directory, so run install.shen (and its relative `(load "…")` forms)
+        // with the process cwd set to the stlib directory, then restore it.
+        let fm = FileManager.default
+        let saved = fm.currentDirectoryPath
+        guard fm.changeCurrentDirectoryPath(dir.path) else {
+            throw KLError("stdlib: cannot enter \(dir.path)")
+        }
+        defer { _ = fm.changeCurrentDirectoryPath(saved) }
+        // Load hushed: this is how ports load the stdlib (silences load's
+        // per-definition echo), and install.shen must run under *hush* here —
+        // its unhushed output goes through the host `pr` override and leaves
+        // the output path in a state that breaks later eval.
+        let savedHush = intern("*hush*").gv ?? .bool(false)
+        setGlobal("*hush*", .bool(true))
+        defer { setGlobal("*hush*", savedHush) }
+        _ = try apply(try fn("load"), [.str("install.shen")])
+        // install.shen ends with `(cd "")`; restore the port's home directory.
         installGlobals()
     }
 

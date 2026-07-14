@@ -14,7 +14,7 @@ let package = Package(
     targets: [
         .target(
             name: "ShenSwift",
-            resources: [.copy("klambda")]
+            resources: [.copy("klambda"), .copy("stlib")]
         ),
         .executableTarget(
             name: "shen-swift",

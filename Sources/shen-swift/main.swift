@@ -20,10 +20,14 @@ final class Runner: Thread {
         var launcherArgs: [String] = ["shen-swift"]
         var shakenKernel: URL? = nil
         var shakenUser: URL? = nil
+        var stdlib = false
         var i = 0
         while i < args.count {
             switch args[i] {
             case "--verbose", "-v":
+                i += 1
+            case "--stdlib":
+                stdlib = true
                 i += 1
             case "--kl":
                 if i + 1 < args.count { interp.klDirectory = URL(fileURLWithPath: args[i + 1]) }
@@ -56,7 +60,7 @@ final class Runner: Thread {
 
         do {
             let start = Date()
-            try interp.boot(verbose: verbose)
+            try interp.boot(verbose: verbose, stdlib: stdlib)
             if verbose {
                 let ms = Int(Date().timeIntervalSince(start) * 1000)
                 FileHandle.standardError.write(Data("kernel booted in \(ms) ms\n".utf8))

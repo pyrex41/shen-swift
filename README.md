@@ -62,10 +62,31 @@ swift run -c release shen-swift            # interactive REPL
 echo '(+ 1 2)' | swift run -c release shen-swift
 ```
 
-Flags: `--verbose` (boot diagnostics), `--kl <dir>` (override the kernel
+Flags: `--verbose` (boot diagnostics), `--stdlib` (also load the standard
+library — see *Standard library* below), `--kl <dir>` (override the kernel
 directory), `--shaken <kernel.kl> <user.kl>` (Ratatoskr stage-2 mode: boot a
 minimal shaken slice and run the user program to completion instead of loading
 the full kernel + launcher — see *Ratatoskr* below).
+
+## Standard library
+
+Since S41.2 the standard library is no longer part of the kernel; it ships as
+Shen sources under upstream `Lib/StLib` (mirror `pyrex41/shen-upstream`, tag
+`s41.2-pristine-20260711`), vendored under `Sources/ShenSwift/stlib/` and driven
+by upstream's own `install.shen` (see `stlib/PROVENANCE.md`). Pass `--stdlib`
+(CLI) or `boot(stdlib: true)` (library) to load it; then `filter`, `mapc`,
+`take`, `drop`, `sort`, the `string`/`maths`/`tuple`/`symbol` packages, etc. are
+available:
+
+```sh
+shen-swift --stdlib eval -e "(filter (/. X (> X 2)) [1 2 3 4])"   # -> [3 4]
+```
+
+It is **opt-in** because this is a tree-walking interpreter: rather than loading
+precompiled KL (there is no `stlib.kl` anymore), it compiles the ~2300 lines of
+Shen source at load time, a one-time ~25 s cost. A kernel-only boot stays ~1 s.
+The bundle grows only by the ~60 KB of Shen sources, which is what matters for
+the iOS target.
 
 ## Library API
 
@@ -108,6 +129,10 @@ behave like shen-go/shen-julia.
   no AOT dispatch to pin an old definition).
 - CLI verified by hand against the refreshed kernel: `--version`, `--help`,
   `eval -e/-l/-q/-r`, `script <file>`, and the bare/`repl` interactive loop.
+- **Standard library** loads from Tarver's `Lib/StLib` sources under `--stdlib`
+  (opt-in; see *Standard library*). Upstream's `install.shen` loads unmodified —
+  no source patches — giving `filter`/`mapc`/`take`/`drop`/`sort` and the
+  `string`/`maths`/`tuple`/`symbol` packages bare.
 - **Ratatoskr** stage-2 target verified against the refreshed kernel: shaking
   `tests/fib.shen` (ratatoskr `kernel/tarver-s41-refresh-20260711`, commit
   `8ae561a`) and driving the resulting slice through `--shaken` prints

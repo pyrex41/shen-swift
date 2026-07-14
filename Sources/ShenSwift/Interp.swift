@@ -16,6 +16,9 @@ public final class Interp {
     /// Directory containing the kernel `.kl` files (resource bundle or override).
     public var klDirectory: URL?
 
+    /// Directory containing the StLib `.shen` sources (resource bundle or override).
+    public var stdlibDirectory: URL?
+
     public init() {
         var tbl: [String: Sym] = [:]
         func mk(_ n: String) -> Sym { let s = Sym(n); tbl[n] = s; return s }
