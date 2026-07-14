@@ -101,16 +101,19 @@ behave like shen-go/shen-julia.
   an interactive REPL. `(value *version*)` reports `"41.2"`.
 - Passes the Swift test target (`swift test`) — **12/12**, including the
   kernel-boot test (`define`, `reverse`, tail recursion, type signatures).
+- Passes the canonical **kerneltests** suite — **134/134, 100%** (`script
+  runme.shen` over `harness.shen` + `kerneltests.shen` from the refreshed
+  kernel's own Test Programs; ~133 s). This is the full type-checker exercise,
+  so it also covers the `shen.demod` synonym-redefinition path (late-bound here;
+  no AOT dispatch to pin an old definition).
 - CLI verified by hand against the refreshed kernel: `--version`, `--help`,
   `eval -e/-l/-q/-r`, `script <file>`, and the bare/`repl` interactive loop.
-- **Re-validation pending against the refreshed kernel** (these passed on the
-  previous community 41.2 and have not yet been re-run here):
-  - the external kernel test suite (`cl-source/.../tests/runme.shen`);
-  - **Bifrost** cross-port conformance (`bifrost.py --impls shen-swift`);
-  - **Ratatoskr** stage-1 host / stage-2 target byte-identical parity. The
-    stage-2 `--shaken` path was updated to tolerate slices without a
-    `shen.initialise` (the refreshed kernel has none — it initialises via
-    top-level forms), but shaken slices must be **regenerated** from this kernel
-    and re-checked with `bifrost --shake`.
+- **Ratatoskr** stage-2 target verified against the refreshed kernel: shaking
+  `tests/fib.shen` (ratatoskr `kernel/tarver-s41-refresh-20260711`, commit
+  `8ae561a`) and driving the resulting slice through `--shaken` prints
+  `fib 20 = 6765`. The slice is a genuine refresh-kernel slice
+  (`kernel-version=41.2-s41r.20260711`, 54 defuns) carrying a synthesised
+  `shen.initialise`, which `bootShaken` invokes via its guard. Ratatoskr PR #10
+  additionally certified byte-identical parity across four targets.
 - Phase 2 (planned): iOS SwiftUI app target; optional AOT compiler for hot
   paths; native dict/hash overrides per the Shen port performance notes.
