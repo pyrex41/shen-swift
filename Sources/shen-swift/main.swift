@@ -4,6 +4,17 @@ import ShenSwift
 // The tree-walking evaluator recurses on the host stack for non-tail calls
 // (e.g. the recursive arm of `append`). Run everything on a dedicated thread
 // with a large stack so deep user recursion does not overflow.
+/// Reports a fatal error on stderr and exits.
+///
+/// stderr is unbuffered while stdout, when it is a pipe, is fully buffered, so
+/// anything the interpreter has already printed must be flushed first — otherwise
+/// the diagnostic overtakes it in a merged (`2>&1`) capture.
+func die(_ message: String) -> Never {
+    fflush(stdout)
+    FileHandle.standardError.write(Data((message + "\n").utf8))
+    Foundation.exit(1)
+}
+
 final class Runner: Thread {
     let args: [String]
     init(args: [String]) { self.args = args; super.init() }
@@ -48,11 +59,9 @@ final class Runner: Thread {
             do {
                 try interp.bootShaken(kernel: kern, user: usr, verbose: verbose)
             } catch let e as KLError {
-                FileHandle.standardError.write(Data("error: \(e.message)\n".utf8))
-                Foundation.exit(1)
+                die("error: \(e.message)")
             } catch {
-                FileHandle.standardError.write(Data("error: \(error)\n".utf8))
-                Foundation.exit(1)
+                die("error: \(error)")
             }
             fflush(stdout)
             Foundation.exit(0)
@@ -66,21 +75,17 @@ final class Runner: Thread {
                 FileHandle.standardError.write(Data("kernel booted in \(ms) ms\n".utf8))
             }
         } catch let e as KLError {
-            FileHandle.standardError.write(Data("boot error: \(e.message)\n".utf8))
-            Foundation.exit(1)
+            die("boot error: \(e.message)")
         } catch {
-            FileHandle.standardError.write(Data("boot error: \(error)\n".utf8))
-            Foundation.exit(1)
+            die("boot error: \(error)")
         }
 
         do {
             try interp.runLauncher(launcherArgs)
         } catch let e as KLError {
-            FileHandle.standardError.write(Data("error: \(e.message)\n".utf8))
-            Foundation.exit(1)
+            die("error: \(e.message)")
         } catch {
-            FileHandle.standardError.write(Data("error: \(error)\n".utf8))
-            Foundation.exit(1)
+            die("error: \(error)")
         }
         fflush(stdout)
         Foundation.exit(0)
