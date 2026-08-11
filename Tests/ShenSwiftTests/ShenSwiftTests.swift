@@ -95,3 +95,54 @@ final class BootTests: XCTestCase {
                        "(3 2 1)")
     }
 }
+
+/// Ordering guarantees that only show up in the built CLI, when stdout is a pipe
+/// (fully buffered) rather than a tty (line buffered).
+final class CLIOutputOrderingTests: XCTestCase {
+    /// Directory holding the built products (and hence the `shen-swift` binary).
+    private var productsDirectory: URL {
+        for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
+            return bundle.bundleURL.deletingLastPathComponent()
+        }
+        return Bundle.main.bundleURL
+    }
+
+    /// `(load FILE)` must print each toplevel form's value as the form is
+    /// evaluated and only then the `loaded` result — launcher output and kernel
+    /// output share one buffer, so neither can jump the queue.
+    func testLoadEchoesFormsBeforeLoadedMessage() throws {
+        let binary = productsDirectory.appendingPathComponent("shen-swift")
+        try XCTSkipUnless(FileManager.default.isExecutableFile(atPath: binary.path),
+                          "shen-swift executable not built")
+
+        let dir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("shen-swift-load-echo-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try "\"PROBE\"\n(+ 40 2)\n".write(to: dir.appendingPathComponent("probe.shen"),
+                                          atomically: true, encoding: .utf8)
+
+        let proc = Process()
+        proc.executableURL = binary
+        proc.arguments = ["eval", "-e", "(load \"probe.shen\")"]
+        proc.currentDirectoryURL = dir
+        let pipe = Pipe()                       // a pipe, not a tty: full buffering
+        proc.standardOutput = pipe
+        try proc.run()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        proc.waitUntilExit()
+
+        let lines = (String(data: data, encoding: .utf8) ?? "")
+            .split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
+        let probe = lines.firstIndex(of: "\"PROBE\"")
+        let answer = lines.firstIndex(of: "42")
+        let loaded = lines.firstIndex(of: "loaded")
+        XCTAssertNotNil(probe, "no per-form echo of \"PROBE\" in: \(lines)")
+        XCTAssertNotNil(answer, "no per-form echo of 42 in: \(lines)")
+        XCTAssertNotNil(loaded, "no `loaded` message in: \(lines)")
+        if let probe, let answer, let loaded {
+            XCTAssertLessThan(probe, answer, "toplevel forms echoed out of order: \(lines)")
+            XCTAssertLessThan(answer, loaded, "`loaded` printed before the file's own output: \(lines)")
+        }
+    }
+}

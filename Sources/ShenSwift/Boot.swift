@@ -332,8 +332,19 @@ extension Interp {
         return .fn(f)
     }
 
+    /// Writes a launcher message to standard output.
+    ///
+    /// This MUST go through C stdio's `stdout` — the same `FILE *` the kernel's
+    /// `*stoutput*` stream writes to (`putchar`, see `setupStreams`). Writing via
+    /// `FileHandle.standardOutput` instead issues a raw `write(2)` straight to the
+    /// file descriptor, overtaking whatever the kernel has left sitting in stdio's
+    /// buffer: when stdout is a pipe (fully buffered, unlike a line-buffered tty)
+    /// that reorders launcher output ahead of the interpreter's own. The visible
+    /// symptom was `(load "f.shen")` printing `loaded` *before* the per-form echoes
+    /// `load` itself had already printed (bifrost `load-toplevel-echo`).
     private func writeStdout(_ s: String) {
-        FileHandle.standardOutput.write(Data(s.utf8))
+        let bytes = Array(s.utf8)
+        if !bytes.isEmpty { fwrite(bytes, 1, bytes.count, stdout) }
     }
 
     private func globalString(_ name: String) -> String {
