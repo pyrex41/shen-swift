@@ -64,9 +64,9 @@ echo '(+ 1 2)' | swift run -c release shen-swift
 
 Flags: `--verbose` (boot diagnostics), `--stdlib` (also load the standard
 library — see *Standard library* below), `--kl <dir>` (override the kernel
-directory), `--shaken <kernel.kl> <user.kl>` (Ratatoskr stage-2 mode: boot a
+directory), `--shaken <kernel.kl> <user.kl>` (Yggdrasil stage-2 mode: boot a
 minimal shaken slice and run the user program to completion instead of loading
-the full kernel + launcher — see *Ratatoskr* below).
+the full kernel + launcher — see *Yggdrasil* below).
 
 ## Standard library
 
@@ -133,12 +133,12 @@ behave like shen-go/shen-julia.
   (opt-in; see *Standard library*). Upstream's `install.shen` loads unmodified —
   no source patches — giving `filter`/`mapc`/`take`/`drop`/`sort` and the
   `string`/`maths`/`tuple`/`symbol` packages bare.
-- **Ratatoskr** stage-2 target verified against the refreshed kernel: shaking
-  `tests/fib.shen` (ratatoskr `kernel/tarver-s41-refresh-20260711`, commit
+- **Yggdrasil** stage-2 target verified against the refreshed kernel: shaking
+  `tests/fib.shen` (yggdrasil `kernel/tarver-s41-refresh-20260711`, commit
   `8ae561a`) and driving the resulting slice through `--shaken` prints
   `fib 20 = 6765`. The slice is a genuine refresh-kernel slice
   (`kernel-version=41.2-s41r.20260711`, 54 defuns) carrying a synthesised
-  `shen.initialise`, which `bootShaken` invokes via its guard. Ratatoskr PR #10
+  `shen.initialise`, which `bootShaken` invokes via its guard. Yggdrasil PR #10
   additionally certified byte-identical parity across four targets.
 - Phase 2 (planned): iOS SwiftUI app target; optional AOT compiler for hot
   paths; native dict/hash overrides per the Shen port performance notes.

@@ -25,7 +25,7 @@ final class Runner: Thread {
 
         // Strip ShenSwift-internal flags; everything else is forwarded verbatim
         // to the kernel launcher (eval / script / repl / --version / --help).
-        // `--shaken <kernel.kl> <user.kl>` switches to Ratatoskr stage-2 mode:
+        // `--shaken <kernel.kl> <user.kl>` switches to Yggdrasil stage-2 mode:
         // boot a minimal shaken slice (kernel + user) and run the user program
         // to completion instead of loading the full kernel + launcher.
         var launcherArgs: [String] = ["shen-swift"]
@@ -54,7 +54,7 @@ final class Runner: Thread {
             }
         }
 
-        // Ratatoskr stage-2 path: shaken-slice boot, no kernel launcher.
+        // Yggdrasil stage-2 path: shaken-slice boot, no kernel launcher.
         if let kern = shakenKernel, let usr = shakenUser {
             do {
                 try interp.bootShaken(kernel: kern, user: usr, verbose: verbose)
