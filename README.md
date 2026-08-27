@@ -4,13 +4,13 @@ A from-scratch port of the [Shen programming language](https://shenlanguage.org)
 to Swift, designed to run on macOS **and iOS**.
 
 It is a **tree-walking KLambda interpreter**: it loads Mark Tarver's refreshed
-**S41.2** `.kl` sources at runtime and interprets them (the 15 files are vendored
+**Shen 42.0** `.kl` sources at runtime and interprets them (the 15 files are vendored
 verbatim under `Sources/ShenSwift/klambda/` — see its `PROVENANCE.md`). Because
 nothing is compiled or code-generated on device, it runs inside the iOS sandbox
 (no JIT, no `dlopen`, no runtime `swiftc`), and supports live `(define ...)` at
 the REPL.
 
-> **Kernel note.** Upstream reused the version string "41.2" for a *restructured*
+> **Kernel note.** Shen 42.0 is the current restructured kernel; `(version)` reports "42".
 > kernel (different lineage from the community `ShenOSKernel-41.2` this port used
 > before). It drops `init.kl`/`dict.kl`/`stlib.kl` and the community
 > `extension-*.kl`, and adds a `cl.*` Common-Lisp backend (`backend.kl`, inert
@@ -70,9 +70,9 @@ the full kernel + launcher — see *Yggdrasil* below).
 
 ## Standard library
 
-Since S41.2 the standard library is no longer part of the kernel; it ships as
+Since S42 the standard library is no longer part of the kernel; it ships as
 Shen sources under upstream `Lib/StLib` (mirror `pyrex41/shen-upstream`, tag
-`s41.2-pristine-20260711`), vendored under `Sources/ShenSwift/stlib/` and driven
+`s42-pristine-20260825`), vendored under `Sources/ShenSwift/stlib/` and driven
 by upstream's own `install.shen` (see `stlib/PROVENANCE.md`). Pass `--stdlib`
 (CLI) or `boot(stdlib: true)` (library) to load it; then `filter`, `mapc`,
 `take`, `drop`, `sort`, the `string`/`maths`/`tuple`/`symbol` packages, etc. are
@@ -109,7 +109,7 @@ matches shen-go / shen-rust / shen-julia / ShenScript:
 shen-swift                      # interactive REPL
 shen-swift eval -e "(+ 1 2)"    # evaluate an expression -> 3
 shen-swift script prog.shen     # run a .shen program
-shen-swift --version            # 41.2 (port ("Swift" "0.1.0") ...)
+shen-swift --version            # 42 (port ("Swift" "0.1.0") ...)
 ```
 
 `-q` sets `*hush*`. A host-side `pr` override makes `*hush*` gate **only
@@ -118,8 +118,8 @@ behave like shen-go/shen-julia.
 
 ## Status
 
-- Boots the refreshed **S41.2** kernel (all 15 KLambda files) in ~1 s and runs
-  an interactive REPL. `(value *version*)` reports `"41.2"`.
+- Boots the refreshed **Shen 42** kernel (all 15 KLambda files) in ~1 s and runs
+  an interactive REPL. `(value *version*)` reports `"42"`.
 - Passes the Swift test target (`swift test`) — **12/12**, including the
   kernel-boot test (`define`, `reverse`, tail recursion, type signatures).
 - Passes the canonical **kerneltests** suite — **134/134, 100%** (`script

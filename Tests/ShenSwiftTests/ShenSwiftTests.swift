@@ -89,7 +89,7 @@ final class BootTests: XCTestCase {
         let interp = Interp()
         try interp.boot()
         // A kernel global established by initialise-environment.
-        XCTAssertEqual(Printer.show(try interp.evalKL("(value *version*)")), "\"41.2\"")
+        XCTAssertEqual(Printer.show(try interp.evalKL("(value *version*)")), "\"42\"")
         // A kernel-defined function (reverse) works end to end.
         XCTAssertEqual(Printer.show(try interp.evalKL("(reverse (cons 1 (cons 2 (cons 3 ()))))")),
                        "(3 2 1)")
