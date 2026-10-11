@@ -1,6 +1,95 @@
 # Kernel provenance
 
-These KLambda (`.kl`) sources are the **refreshed S41.2 kernel** published by
+These KLambda (`.kl`) sources are the community **ShenOSKernel 42.2** release,
+the kernel shipped by upstream shen-scheme 0.50. They are vendored
+**byte-for-byte** from the release tarball's `klambda/` directory (all 23
+files), together with the release's `LICENSE.txt`.
+
+- **Repository:** <https://github.com/Shen-Language/shen-sources>
+- **Tag:** `shen-42.2`
+- **Commit:** `73507e069fe147aefb728d632c4ce40bc6a7b314`
+- **Release asset:** `ShenOSKernel-42.2.tar.gz`
+- **Asset SHA-256:** `1d02273003654d34ec020ae67cb214ecec410dee3350419ff807d82b652678d8`
+  (the checksum pinned in shen-scheme 0.50's Makefile)
+- **Extracted from:** `ShenOSKernel-42.2/klambda/`
+- `(version)` → `"42.2"` (set by `shen.initialise-environment` in `init.kl`)
+
+## Lineage choice
+
+Option (a) of pyrex41/shen-swift#7 (umbrella pyrex41/bifrost#26,
+pyrex41/yggdrasil#32): **adopt ShenOSKernel-42.2 wholesale**. This replaces the
+refreshed S41.2 kernel (Mark Tarver's lineage, mirror `pyrex41/shen-s41.1` tag
+`s41.2-pristine-20260711`, kept below as history). This port never vendored
+Tarver's S42.0, so the upgrade also brings in the 42.0 changes (lambda-form
+invalidation on arity change, S42 kernel error strings such as the trailing
+newline in the `(head [])` message).
+
+Structural consequences for the boot (see `Boot.swift`):
+
+- Every `.kl` file holds only `defun`s; there are no top-level forms to order.
+  `boot()` loads the 16 kernel modules (`sys writer core reader declarations
+  toplevel macros load prolog sequent track t-star yacc types dict init`),
+  installs the host overrides, then calls `(shen.initialise)`.
+- `dict.kl` is back: `*property-vector*` is a `shen.dict` (hash buckets), which
+  also holds the arity table and lambda forms.
+- `stlib.kl` is the precompiled standard library. `--stdlib` / `boot(stdlib:)`
+  loads it and calls `(stlib.initialise)` (doc/port-upgrades.md, 41.1). It
+  replaces the Tarver `Lib/StLib` Shen sources this port previously compiled at
+  load time (`Sources/ShenSwift/stlib/`, removed).
+- The `extension-*.kl` files are vendored but **not booted**. The CLI
+  launcher stays native (`Interp.runLauncher`), mirroring
+  `extension-launcher.kl`'s command surface.
+- The S41.2 `backend.kl` (`cl.*` Common-Lisp backend) is gone.
+
+## Host override audit (42.x)
+
+| Override | Status |
+|----------|--------|
+| `fn` | **Removed.** The S41.2-era native read the symbol's function slot; the kernel's 42.2 `fn` reads lambda forms from the shen.dict and honours the 42.0 arity-0 invalidation. |
+| `get` / `put` / `unput` / `arity` / lambda-table | Not overridden; kernel code against its own shen.dict. No `shen.*lambdatable*` shim. |
+| `hash` | **New native** (doc/port-performance.md "Hashing"): deterministic FNV-1a structural hash consistent with `=` (1 / 1.0, `true` / `(intern "true")`, equal lists/vectors); 0 maps to 1 as in the kernel; non-positive or non-integer bounds defer to the kernel definition. Installed before `shen.initialise` builds the dict. |
+| `pr` | Kept: `*hush*` gates stdout only; explicit file streams still write (Yggdrasil shakes run under `-q`). |
+| reader / `macroexpand` / `shen.macroexpand-h` / `shen.try-parse` | Not overridden, so the 42.1 source-form handler order and 4-argument `shen.macroexpand-h` are the kernel's. |
+| stdin `read-byte` | Returns -1 once at EOF when a partial line is pending, so a final line without a trailing newline is read (42.1); EOF at a line boundary still exits the REPL. File streams return -1 at EOF. |
+| `shen.char-stoutput?` / `shen.char-stinput?` | `false` (byte-oriented port), unchanged. |
+
+## Per-file sha256 (as vendored)
+
+```
+9c0ef84f269a23cbdde12918f12e3619d8a186893cfc029f5e30cc7807e200e1  core.kl
+b35c94d4648edf4d1076bf848cf6ddba288938229e41c03f770cfc4108aae35d  declarations.kl
+91ec5680027bb3b62fb98eda01d510d9d3980f6890b32f1198a50e6143c3e371  dict.kl
+caa04fc798f230c2a76a696aad08e8ba2db7a686a0c6e2ede1681bf3f547fa4a  extension-expand-dynamic.kl
+75dde0f6d36e254e4204cbf4fcee94c7daafdd3993c686a8a60a1a134b578c48  extension-features.kl
+b7d3016460aae3d505ea01a548fa56a0994fa405edf423d656a5f61ed1375ef0  extension-launcher.kl
+21068ec77f28ca0adf6f03062b3e4d4e05a8e52e6311624fc43f2e1a3c61b75c  extension-namespaces.kl
+492d381093456c530b86f81f8332df0dddc4f36f6c7940103c486949b1b0b1fe  extension-programmable-pattern-matching.kl
+2f16da65b7c6a4936ea1d07ee9bfb01bfd100ff8eff8dc5f15bf0a32c8e056db  extension-type-annotations.kl
+3dbc7796b3408888d0b2a39b324676c3d1687e65fccc90068d2165d188c03491  init.kl
+cd4cea54af5bd5d4ce03582d270e1e6bd3a6951e51e38ffacf28d16d508a7675  load.kl
+190a6ef7072745019517139985a7e185fded43ac8d612ec49a6f9b02a9efd02b  macros.kl
+2949cde531e778cb876b15c653fc9388313d53f5771df995ffc4abd81773e56f  prolog.kl
+1fb0831d4c656ed2cb7c90bd6d3aa69a6f5cb637c8afdc7bf50fa9130f5f628f  reader.kl
+32f5ba6d97d774465bb0efcf6f04f8b667b8ce99cde40e0b471a03bec8ecdd6a  sequent.kl
+6184228e4420918c2fd6f45f90a8b08e44ea815cf86b337b2b2653984e44c86b  stlib.kl
+df41e05c4a64af6ad1223c55a01c03f81b4e031aa6cccb671928aa03591040b9  sys.kl
+c3c90732a49586c1280bafa5bac52ff037d5e81ff853baecf9f7cccd76145295  t-star.kl
+702ca0eb844198c752f696b17cdae3653015de2980dbbb5dd69f55d13d650ea4  toplevel.kl
+67ff9e8de5019e42ecfa8df2cef1961bc28487c2f4678f842eadf4f4314c9825  track.kl
+9e83288d9b1647c9a0d3a0d6796a26b828968c6509d1179923f2c47101d879df  types.kl
+5e6f6374fc1fd7ec4b3f9eab79467b8c93393d721cecef2f22ccf84fdef39070  writer.kl
+bd178ad4cf028115fabd1e7f3b00f202f73be1380b71a6111de3a0ce0bf30ad8  yacc.kl
+aec4473b0b8990ce8ab3344f75cdc0ec11da50020405a44b4b50453789dbf948  LICENSE.txt
+```
+
+# History: refreshed S41.2 kernel (vendored until this upgrade)
+
+The record below is kept verbatim from before the 42.2 upgrade. At that time
+the standard library was vendored separately as Tarver's `Lib/StLib` Shen
+sources (`Sources/ShenSwift/stlib/`, mirror `pyrex41/shen-upstream` tag
+`s41.2-pristine-20260711`), now removed in favour of 42.2's `stlib.kl`.
+
+The KLambda (`.kl`) sources were then the **refreshed S41.2 kernel** published by
 Mark Tarver, not the community `ShenOSKernel-41.2` this port previously vendored.
 
 **Canonical source:** `pyrex41/shen-s41.1`, the designated mirror of Tarver's
@@ -15,14 +104,14 @@ Upstream origin, mirrored by that tag (secondary detail):
 - **Archive sha256:** `51becbfd60fa8c93c3f8ae5b20b948eaa84c4b1d14ad2f5d2a056002a53ee836`
 - **Extracted from:** `S41/KLambda/` inside that archive
 
-## Caveat: same version number, different kernel
+### Caveat: same version number, different kernel
 
 Upstream **reused the version string "41.2"** for a *restructured* kernel with a
 different lineage from the community `github.com/Shen-Language/shen-sources`
 kernel (tag `shen-41.2`). `(value *version*)` still reports `"41.2"`. Treat this
 vendored copy as **"S41.2 (2026-07-11 refresh)"** to disambiguate.
 
-## What changed vs. the community 41.2 kernel
+### What changed vs. the community 41.2 kernel
 
 Removed here (were vendored before): `compiler.kl`, `dict.kl` (the dict layer is
 gone; pointer ops `shen.change-pointer-value` / `shen.remove-pointer` replace
@@ -38,7 +127,7 @@ this Swift port** (it contains only `defun`s that reference uppercase CL
 primitives like `MEMBER`/`GENSYM`/`CL.MAPCAR`, which this interpreter never
 calls); it is vendored because it is part of upstream's boot list.
 
-## Per-file sha256 (as vendored)
+### Per-file sha256 (as vendored)
 
 ```
 e9e7dc25553e995b340b5579b08f6f08511ddf585f3e6eef8efc9cff5e696c77  backend.kl

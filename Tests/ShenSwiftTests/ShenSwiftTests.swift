@@ -89,10 +89,48 @@ final class BootTests: XCTestCase {
         let interp = Interp()
         try interp.boot()
         // A kernel global established by initialise-environment.
-        XCTAssertEqual(Printer.show(try interp.evalKL("(value *version*)")), "\"41.2\"")
+        XCTAssertEqual(Printer.show(try interp.evalKL("(value *version*)")), "\"42.2\"")
         // A kernel-defined function (reverse) works end to end.
         XCTAssertEqual(Printer.show(try interp.evalKL("(reverse (cons 1 (cons 2 (cons 3 ()))))")),
                        "(3 2 1)")
+    }
+
+    /// ShenOSKernel 42.x behaviour the port's boot and overrides must preserve.
+    func testKernel42Behaviour() throws {
+        let interp = Interp()
+        try interp.boot()
+        func shen(_ src: String) throws -> String {
+            Printer.show(try interp.evalUserString(src))
+        }
+        // 42.0: redefining a function with arity 0 invalidates its lambda form,
+        // so `fn` sees the new definition (and calls the zero-place function).
+        _ = try shen("(define f42 X -> X)")
+        _ = try shen("(define f42 -> 5)")
+        XCTAssertEqual(try shen("(fn f42)"), "5")
+        // Property store (shen.dict) round trip, and the native hash agrees
+        // with `=` (1 / 1.0 must land in the same bucket).
+        XCTAssertEqual(try shen("(do (put k42 p 7) (get k42 p))"), "7")
+        XCTAssertEqual(try shen("(do (put 1 p one) (get 1.0 p))"), "one")
+        XCTAssertEqual(try shen("(= (hash [a \"b\" 1] 997) (hash [a \"b\" 1.0] 997))"), "true")
+        // The 42.x kernel error string for (head []) (S42 added the newline).
+        XCTAssertEqual(try shen("(trap-error (head []) (lambda E (error-to-string E)))"),
+                       "\"head expects a non-empty list\n\"")
+        // 42.1: source-form handlers ride along in macroexpand.
+        XCTAssertEqual(try shen("(macroexpand [input+ number])"),
+                       "(shen.input-h+ number (stinput))")
+    }
+
+    /// 42.1: `read` at EOF parses a final expression with no trailing newline
+    /// (file streams report -1 at EOF).
+    func testReadAtEOFWithoutNewline() throws {
+        let interp = Interp()
+        try interp.boot()
+        let file = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("shen-swift-eof-\(UUID().uuidString).shen")
+        try "(+ 1 2)".write(to: file, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: file) }
+        let v = try interp.evalUserString("(read (open \"\(file.path)\" in))")
+        XCTAssertEqual(Printer.show(v), "(+ 1 2)")
     }
 }
 
