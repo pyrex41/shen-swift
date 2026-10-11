@@ -1,21 +1,22 @@
 import Foundation
 
 extension Interp {
-    /// The 15 KLambda files of Mark Tarver's refreshed S41.2 kernel (mirror
-    /// pyrex41/shen-s41.1 @ tag s41.2-pristine-20260711 — see klambda/PROVENANCE.md),
-    /// in the order given by the upstream Sources/make.shen. That is the
-    /// *bootstrap* (compile .shen -> .kl) order; the fresh-runtime load below is
-    /// two-phase, so the only ordering constraint it actually imposes is that
-    /// each file's defuns are interned before any top-level form runs.
+    /// The 16 kernel modules of the community ShenOSKernel-42.2 release
+    /// (shen-sources tag `shen-42.2` — see klambda/PROVENANCE.md). Every file
+    /// holds only `defun`s, so their order is not significant; all runtime
+    /// state (globals, the `*property-vector*` shen.dict, the arity table, the
+    /// lambda forms, the type signatures) is established afterwards by
+    /// `(shen.initialise)` from init.kl. dict.kl provides the hash-table
+    /// property store that 42.x uses in place of a raw property vector.
     ///
-    /// This kernel has no `shen.initialise`, no bundled `stlib.kl`, and no
-    /// community `extension-*.kl` launcher — initialisation happens through
-    /// top-level forms in declarations.kl and types.kl (see `boot()`), the
-    /// standard library ships separately as lazy Shen sources (Lib/StLib, not
-    /// vendored here), and the CLI is provided natively by `runLauncher`.
+    /// The release also ships `stlib.kl` (the precompiled standard library,
+    /// loaded by `loadStdlib`) and the community `extension-*.kl` files. Those
+    /// are vendored byte-for-byte but not booted: the CLI launcher is provided
+    /// natively by `runLauncher`, matching the extension's command surface.
     static let kernelFiles = [
-        "yacc", "core", "load", "prolog", "reader", "sequent", "sys", "t-star",
-        "toplevel", "track", "types", "writer", "backend", "declarations", "macros",
+        "sys", "writer", "core", "reader", "declarations", "toplevel", "macros",
+        "load", "prolog", "sequent", "track", "t-star", "yacc", "types", "dict",
+        "init",
     ]
 
     /// Resolves the directory holding the kernel `.kl` files.
@@ -57,118 +58,90 @@ extension Interp {
 
     /// Boots the full Shen kernel. Call once before evaluating user code.
     ///
-    /// Two-phase load. The refreshed S41.2 kernel has no `shen.initialise`;
-    /// instead the runtime is initialised by *top-level* forms: declarations.kl
-    /// establishes the globals (`*property-vector*`, `shen.*sigf*`, `*version*`,
-    /// …), the arity table and the lambda table, and types.kl declares the
-    /// kernel's ~160 type signatures. Those declares read globals that
-    /// declarations.kl sets, but Sources/make.shen lists types.kl *before*
-    /// declarations.kl (correct for compiling .shen, wrong for loading compiled
-    /// .kl into a fresh image). So we intern every file's defuns first, then run
-    /// the collected top-level forms with declarations.kl ahead of types.kl.
+    /// ShenOSKernel 42.2 boot sequence (doc/porting.md, shen-scheme 0.50):
+    /// load every module's defuns, install the host overrides, then call
+    /// `(shen.initialise)`, which builds the shen.dict property store, the
+    /// arity and lambda-form tables, the macro and source-form-handler
+    /// registries and the kernel's type signatures, and sets `*version*` to
+    /// "42.2". Unlike the refreshed S41.2 kernel this port used to vendor,
+    /// there are no top-level forms to sequence.
     ///
-    /// When `stdlib` is true, the standard library is loaded from Shen source
-    /// after the kernel is up (see `loadStdlib`). It is off by default: the
-    /// kernel alone boots in ~1 s, whereas compiling the stdlib sources in this
-    /// tree-walking interpreter takes ~25 s (a one-time cost — see `loadStdlib`).
+    /// When `stdlib` is true, the precompiled standard library (`stlib.kl`) is
+    /// loaded afterwards and `(stlib.initialise)` is called (see `loadStdlib`).
     public func boot(verbose: Bool = false, stdlib: Bool = false) throws {
         let dir = try resolveKLDirectory()
         installGlobals()
 
-        // Phase 1 — intern all defuns; collect the non-defun top-level forms.
-        var tops: [String: [KLValue]] = [:]
         for name in Interp.kernelFiles {
             let url = dir.appendingPathComponent("\(name).kl")
             if verbose { FileHandle.standardError.write(Data("loading \(name).kl\n".utf8)) }
-            tops[name] = try loadDefunsCollectingTops(url)
+            try loadKLFile(url)
         }
 
-        // Replace kernel functions that rely on machinery our direct-defun boot
-        // bypasses (notably `fn`, which the kernel resolves via stored
-        // lambda-forms in the property vector — we resolve straight from the
-        // symbol's function slot, which already curries).
+        // Host overrides go in before initialisation, so the kernel's own
+        // set-up runs against them (cf. shen-c / shen-scheme).
         installNativeOverrides()
 
-        // Phase 2 — run the top-level forms. declarations.kl first (it sets the
-        // globals types.kl's declares depend on), then the rest in load order.
-        let topOrder = ["declarations"] + Interp.kernelFiles.filter { $0 != "declarations" }
-        for name in topOrder {
-            guard let forms = tops[name], !forms.isEmpty else { continue }
-            if verbose { FileHandle.standardError.write(Data("initialising from \(name).kl\n".utf8)) }
-            for form in forms { _ = try eval(form, nil) }
-        }
+        if verbose { FileHandle.standardError.write(Data("calling shen.initialise\n".utf8)) }
+        _ = try eval(.list([.sym(intern("shen.initialise"))]), nil)
 
-        // Re-assert the port-identity globals the kernel overwrites while
-        // loading (declarations.kl sets *home-directory* to "").
+        // shen.initialise only sets *home-directory* / *sterror* when they are
+        // unbound, so the port-identity globals survive; re-assert them anyway
+        // so the launcher always reports this host.
         installGlobals()
 
         if stdlib { try loadStdlib(verbose: verbose) }
     }
 
-    /// Resolves the directory holding the bundled StLib `.shen` sources.
-    func resolveStdlibDirectory() throws -> URL {
-        if let dir = stdlibDirectory { return dir }
-        if let url = Bundle.module.url(forResource: "stlib", withExtension: nil) {
-            return url
-        }
-        throw KLError("cannot locate the bundled stlib directory")
-    }
-
-    /// Loads Mark Tarver's standard library from Shen source, on top of an
-    /// already-booted kernel.
+    /// Loads the precompiled standard library shipped with ShenOSKernel-42.2
+    /// (`klambda/stlib.kl`) on top of an already-booted kernel, then calls
+    /// `(stlib.initialise)` to install its package information, arities,
+    /// lambda forms, macros, synonyms, datatypes and types (doc/port-upgrades.md,
+    /// 41.1). This replaces the S41.2-era approach of compiling Tarver's
+    /// `Lib/StLib` Shen sources at load time (~25 s in this interpreter).
     ///
-    /// Since S41.2 the stdlib is no longer part of the kernel (there is no
-    /// `stlib.kl`); it ships as lazy Shen sources under upstream `Lib/StLib`
-    /// (mirror `pyrex41/shen-upstream`, tag `s41.2-pristine-20260711`). Those
-    /// sources are vendored under `stlib/` and driven by upstream's own
-    /// `install.shen`, which loads each module in dependency order (toggling
-    /// `tc`/`factorise` as it goes) and finally declares every external stdlib
-    /// symbol as a system function.
-    ///
-    /// This is a **tree-walking interpreter**, so the stdlib is compiled from
-    /// source at load time rather than loaded as precompiled KL. That costs
-    /// ~25 s and is why it is opt-in (the `--stdlib` CLI flag / `boot(stdlib:)`)
-    /// rather than part of every boot. Bundle cost is only the ~60 KB of Shen
-    /// sources, which matters for the iOS target.
+    /// It stays opt-in (`--stdlib` / `boot(stdlib:)`), as before, so a plain
+    /// kernel boot stays as fast as possible for the iOS target.
     public func loadStdlib(verbose: Bool = false) throws {
-        let dir = try resolveStdlibDirectory()
-        if verbose { FileHandle.standardError.write(Data("loading stdlib from \(dir.path)\n".utf8)) }
-        // The kernel's read-file opens paths relative to the process working
-        // directory, so run install.shen (and its relative `(load "…")` forms)
-        // with the process cwd set to the stlib directory, then restore it.
-        let fm = FileManager.default
-        let saved = fm.currentDirectoryPath
-        guard fm.changeCurrentDirectoryPath(dir.path) else {
-            throw KLError("stdlib: cannot enter \(dir.path)")
-        }
-        defer { _ = fm.changeCurrentDirectoryPath(saved) }
-        // Load hushed: this is how ports load the stdlib (silences load's
-        // per-definition echo), and install.shen must run under *hush* here —
-        // its unhushed output goes through the host `pr` override and leaves
-        // the output path in a state that breaks later eval.
-        let savedHush = intern("*hush*").gv ?? .bool(false)
-        setGlobal("*hush*", .bool(true))
-        defer { setGlobal("*hush*", savedHush) }
-        _ = try apply(try fn("load"), [.str("install.shen")])
-        // install.shen ends with `(cd "")`; restore the port's home directory.
-        installGlobals()
+        let dir = try resolveKLDirectory()
+        if verbose { FileHandle.standardError.write(Data("loading stlib.kl\n".utf8)) }
+        try loadKLFile(dir.appendingPathComponent("stlib.kl"))
+        if verbose { FileHandle.standardError.write(Data("calling stlib.initialise\n".utf8)) }
+        _ = try eval(.list([.sym(intern("stlib.initialise"))]), nil)
     }
 
-    /// Native replacements for kernel functions whose default implementation
-    /// depends on bootstrap bookkeeping we don't reproduce.
+    /// Native replacements for kernel functions.
+    ///
+    /// 42.2 audit: no native here reads or writes the property store
+    /// (`get`/`put`/`unput`), the arity table, `fn` or lambda forms — those all
+    /// run the kernel's own 42.2 code against its shen.dict, so redefinitions
+    /// (including the 42.0 arity-1 -> arity-0 lambda-form invalidation) are
+    /// observed by `(fn F)`. The S41.2-era native `fn` (which read the symbol's
+    /// function slot) was removed. The port does not override the reader,
+    /// `macroexpand` or `shen.macroexpand-h`, so the 42.1 source-form handler
+    /// order is the kernel's.
     func installNativeOverrides() {
-        // `(fn f)` turns a function name into an applicable value. The kernel
-        // looks this up in the property-vector lambda-form table (populated by
-        // build-lambda-table at install). We return the symbol's function slot
-        // directly; partial application is handled by the evaluator's currying.
-        defPrim("fn", 1) { [weak self] a in
-            guard case .sym(let s) = a[0] else {
-                throw KLError("fn: argument is not a symbol: \(Printer.show(a[0]))")
+        // `(hash X Bound)` — 42.x keeps the property store, the arity table and
+        // the lambda forms in a portable shen.dict whose every access hashes the
+        // key. The kernel's hash explodes the key's printed form and multiplies
+        // character codes in Shen, which in this tree-walker roughly tripled the
+        // kernel test-suite time. doc/port-performance.md ("Hashing") permits a
+        // host structural hash consistent with `=`: equal values (1 / 1.0,
+        // true / (intern "true"), structurally equal lists and vectors) hash
+        // equal. It is a deterministic FNV-1a (no per-process seed), and keeps
+        // the kernel's result range (0 maps to 1, so 1..Bound-1, or 1 when
+        // Bound = 1). Non-integer or non-positive bounds defer to the kernel's
+        // own definition, so its errors are unchanged.
+        if let kernelHash = intern("hash").fn {
+            defPrim("hash", 2) { [weak self] a in
+                guard case .int(let bound) = a[1], bound > 0 else {
+                    return try self!.apply(.fn(kernelHash), a)
+                }
+                var h = FNV()
+                Interp.structuralHash(a[0], into: &h, depth: 0)
+                let r = Int(h.value % UInt64(bound))
+                return .int(r == 0 ? 1 : r)
             }
-            guard let f = s.fn else { throw KLError("fn: \(s.name) is undefined") }
-            // The kernel's `fn` immediately invokes nullary functions.
-            if f.arity == 0 { return try self!.apply(.fn(f), []) }
-            return .fn(f)
         }
 
         // `(pr String Stream)` — write a string to a stream. The kernel's pr
@@ -215,16 +188,14 @@ extension Interp {
 
     /// Boots from a Yggdrasil-shaken slice — a minimal `kernel.kl` (just the
     /// defuns the program transitively needs) plus the user `.kl` — instead of
-    /// the full 15-file kernel. The load order mirrors the Scheme/Lua stage-2
-    /// builders: all defuns first, then the native overrides, then (for pre-S41.2
-    /// slices only) `(shen.initialise)`, then the collected top-level forms
+    /// the full kernel. The load order mirrors the Scheme/Lua stage-2 builders
+    /// and the full `boot()`: all defuns first, then the native overrides,
+    /// then `(shen.initialise)` when the slice defines it (42.2 slices carry
+    /// init.kl's initialiser; slices from the refreshed S41.2 kernel instead
+    /// initialise through top-level forms), then the collected top-level forms
     /// (kernel, then user) so the program's effects run against a fully
     /// initialised environment. The user `.kl`'s top-level forms ARE the
     /// program, so no launcher is invoked — boot runs to natural completion.
-    ///
-    /// NOTE: slices shaken from the refreshed S41.2 kernel carry their own
-    /// initialisation in `kTops` (no `shen.initialise`); they must be
-    /// regenerated by the Yggdrasil shaker and re-checked with `bifrost --shake`.
     public func bootShaken(kernel: URL, user: URL, verbose: Bool = false) throws {
         installGlobals()
         if verbose { FileHandle.standardError.write(Data("loading shaken kernel \(kernel.lastPathComponent)\n".utf8)) }
@@ -232,9 +203,6 @@ extension Interp {
         if verbose { FileHandle.standardError.write(Data("loading user \(user.lastPathComponent)\n".utf8)) }
         let uTops = try loadDefunsCollectingTops(user)
         installNativeOverrides()
-        // Pre-S41.2 shaken slices bundled a `shen.initialise`; the refreshed
-        // kernel initialises through its top-level forms (carried in kTops)
-        // instead, so only call it when the slice actually defines it.
         if verbose { FileHandle.standardError.write(Data("initialising environment\n".utf8)) }
         if intern("shen.initialise").fn != nil {
             _ = try eval(.list([.sym(intern("shen.initialise"))]), nil)
@@ -243,11 +211,10 @@ extension Interp {
         for form in uTops { _ = try eval(form, nil) }
     }
 
-    /// Starts the interactive Shen read-eval-print loop. The refreshed S41.2
-    /// kernel's entry point is `shen.shen` (banner + `shen.loop`); it replaces
-    /// the `shen.repl` of the community kernel.
+    /// Starts the interactive Shen read-eval-print loop: the 42.2 kernel's
+    /// `shen.repl` (credits banner + `shen.loop`).
     public func runREPL() throws {
-        _ = try eval(.list([.sym(intern("shen.shen"))]), nil)
+        _ = try eval(.list([.sym(intern("shen.repl"))]), nil)
     }
 
     /// CLI launcher, `args[0]` being the program name and the rest the command
@@ -255,10 +222,10 @@ extension Interp {
     /// `--help`, or nothing for an interactive REPL). Mirrors the command
     /// surface shen-go / shen-rust / shen-julia / ShenScript expose.
     ///
-    /// The community `extension-launcher.kl` that formerly supplied
-    /// `shen.x.launcher.main` is not part of Tarver's refreshed S41.2 kernel, so
-    /// this is a native re-implementation driving the kernel's own `eval`,
-    /// `read-from-string`, `load` and `shen.app`.
+    /// This is a native re-implementation of the community
+    /// `extension-launcher.kl` (`shen.x.launcher.main`, vendored but not booted)
+    /// driving the kernel's own `eval`, `read-from-string`, `load` and
+    /// `shen.app`.
     public func runLauncher(_ args: [String]) throws {
         let rest = Array(args.dropFirst()) // drop program name
         let prog = args.first ?? "shen-swift"
@@ -296,7 +263,9 @@ extension Interp {
                 guard i + 1 < args.count else { throw KLError("eval: \(args[i]) needs an expression") }
                 let result = try evalUserString(args[i + 1])
                 let out = try apply(fn("shen.app"), [result, .str("\n"), .sym(intern("shen.a"))])
-                if case .str(let s) = out { writeStdout(s) }
+                // Printed through `pr` on the standard output, as
+                // extension-launcher.kl does, so `-q` (*hush*) silences it.
+                _ = try apply(fn("pr"), [out, .stream(stdoutStream)])
                 i += 2
             case "-l", "--load":
                 guard i + 1 < args.count else { throw KLError("eval: \(args[i]) needs a file") }
@@ -390,5 +359,75 @@ extension Interp {
         var result: KLValue = .empty
         for f in forms { result = try eval(f, nil) }
         return result
+    }
+}
+
+/// 64-bit FNV-1a, used by the native `hash` override (deterministic across
+/// runs, unlike Swift's seeded `Hasher`).
+struct FNV {
+    private(set) var value: UInt64 = 0xcbf2_9ce4_8422_2325
+
+    mutating func byte(_ b: UInt8) {
+        value = (value ^ UInt64(b)) &* 0x0000_0100_0000_01b3
+    }
+
+    mutating func word(_ w: UInt64) {
+        var w = w
+        for _ in 0..<8 { byte(UInt8(truncatingIfNeeded: w)); w >>= 8 }
+    }
+
+    mutating func string(_ s: String) {
+        for b in s.utf8 { byte(b) }
+        byte(0xff) // terminator, so ("ab" "c") and ("a" "bc") differ
+    }
+}
+
+extension Interp {
+    /// Feeds a structural hash of `v` into `h`, consistent with `klEquals`:
+    /// values that are `=` produce the same byte stream. Lists and vectors are
+    /// hashed over a bounded prefix and depth, which keeps that property (equal
+    /// values share every prefix) while bounding work on large or cyclic data.
+    static func structuralHash(_ v: KLValue, into h: inout FNV, depth: Int) {
+        if depth > 8 { h.byte(0x00); return }
+        switch v {
+        case .sym(let s):
+            h.byte(0x01); h.string(s.name)
+        case .bool(let b):
+            // `true`/`false` are booleans here even when interned from strings.
+            h.byte(0x01); h.string(b ? "true" : "false")
+        case .str(let s):
+            h.byte(0x02); h.string(s)
+        case .int(let n):
+            h.byte(0x03); h.word(UInt64(bitPattern: Int64(n)))
+        case .double(let d):
+            // 1 = 1.0, so an integral double hashes as the integer.
+            if d == d.rounded(), let n = Int64(exactly: d) {
+                h.byte(0x03); h.word(UInt64(bitPattern: n))
+            } else {
+                h.byte(0x04); h.word(d == 0 ? 0 : d.bitPattern)
+            }
+        case .empty:
+            h.byte(0x05)
+        case .cons:
+            h.byte(0x06)
+            var cur = v
+            var n = 0
+            while case .cons(let c) = cur, n < 32 {
+                structuralHash(c.car, into: &h, depth: depth + 1)
+                cur = c.cdr
+                n += 1
+            }
+            if n < 32 { structuralHash(cur, into: &h, depth: depth + 1) }
+        case .vector(let vec):
+            h.byte(0x07)
+            h.word(UInt64(vec.items.count))
+            for item in vec.items.prefix(16) { structuralHash(item, into: &h, depth: depth + 1) }
+        case .fn(let f):
+            h.byte(0x08); h.word(UInt64(UInt(bitPattern: ObjectIdentifier(f).hashValue)))
+        case .stream(let s):
+            h.byte(0x09); h.word(UInt64(UInt(bitPattern: ObjectIdentifier(s).hashValue)))
+        case .error(let e):
+            h.byte(0x0a); h.word(UInt64(UInt(bitPattern: ObjectIdentifier(e).hashValue)))
+        }
     }
 }

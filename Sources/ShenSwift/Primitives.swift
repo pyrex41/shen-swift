@@ -9,14 +9,25 @@ extension Interp {
         stdoutStream = out
 
         let inp = KLStream(direction: .input)
+        // End of standard input. The 42.1+ reader (shen.read-loop) parses a
+        // final line that has no trailing newline when read-byte reports -1, so
+        // if bytes are pending on the current line we return -1 once. EOF at a
+        // line boundary (or a second EOF) exits cleanly instead: the kernel REPL
+        // would otherwise loop forever on "empty stream" errors.
+        var pendingLine = false
         inp.readByte = {
             fflush(stdout)         // make sure any prompt is visible first
             let c = getchar()      // buffered; returns EOF (-1) at end of input
-            if c == -1 {           // exit cleanly on EOF rather than spin (cf. sibling ports)
+            if c == -1 {
+                if pendingLine {
+                    pendingLine = false
+                    return -1
+                }
                 putchar(10)
                 fflush(stdout)
                 exit(0)
             }
+            pendingLine = (c != 10)
             return Int(c)
         }
         stdinStream = inp
