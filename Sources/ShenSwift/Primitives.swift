@@ -180,11 +180,36 @@ extension Interp {
             return .empty
         }
 
-        // ---- Port I/O hooks ----
-        // `pr` consults this to decide whether to use a native fast string-write
-        // path (shen.write-string). We always take the portable write-byte path.
-        defPrim("shen.char-stoutput?", 1) { _ in .bool(false) }
-        defPrim("shen.char-stinput?", 1) { _ in .bool(false) }
+        // ---- Public character-stream interfaces (ShenOSKernel 43.1) ----
+        // Swift exposes byte-oriented streams.  43.1 still requires these
+        // public callables to exist so the kernel can install their arities,
+        // callable forms, and type signatures during initialization.
+        defPrim("char-stream?", 1) { a in
+            guard case .stream = a[0] else {
+                throw KLError("char-stream? expects a stream")
+            }
+            return .bool(false)
+        }
+        defPrim("read-unit-string", 1) { a in
+            guard case .stream(let s) = a[0], s.direction == .input,
+                  let read = s.readByte else {
+                throw KLError("read-unit-string requires open input stream")
+            }
+            let byte = read()
+            guard byte >= 0 else { throw KLError("read-unit-string: end of stream") }
+            return .str(String(UnicodeScalar(byte & 0xff)!))
+        }
+        defPrim("write-string", 2) { a in
+            guard case .str(let text) = a[0] else {
+                throw KLError("write-string requires a string")
+            }
+            guard case .stream(let s) = a[1], s.direction == .output,
+                  let write = s.writeByte else {
+                throw KLError("write-string requires open output stream")
+            }
+            for byte in text.utf8 { write(Int(byte)) }
+            return a[0]
+        }
 
         // ---- Time ----
         defPrim("get-time", 1) { a in

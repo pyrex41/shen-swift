@@ -89,14 +89,14 @@ final class BootTests: XCTestCase {
         let interp = Interp()
         try interp.boot()
         // A kernel global established by initialise-environment.
-        XCTAssertEqual(Printer.show(try interp.evalKL("(value *version*)")), "\"42.2\"")
+        XCTAssertEqual(Printer.show(try interp.evalKL("(value *version*)")), "\"43.1\"")
         // A kernel-defined function (reverse) works end to end.
         XCTAssertEqual(Printer.show(try interp.evalKL("(reverse (cons 1 (cons 2 (cons 3 ()))))")),
                        "(3 2 1)")
     }
 
-    /// ShenOSKernel 42.x behaviour the port's boot and overrides must preserve.
-    func testKernel42Behaviour() throws {
+    /// ShenOSKernel 43.1 behaviour the port's boot and overrides must preserve.
+    func testKernel43Behaviour() throws {
         let interp = Interp()
         try interp.boot()
         func shen(_ src: String) throws -> String {
@@ -118,6 +118,10 @@ final class BootTests: XCTestCase {
         // 42.1: source-form handlers ride along in macroexpand.
         XCTAssertEqual(try shen("(macroexpand [input+ number])"),
                        "(shen.input-h+ number (stinput))")
+        XCTAssertEqual(try shen("(char-stream? (stinput))"), "false")
+        XCTAssertEqual(try shen("(arity char-stream?)"), "1")
+        XCTAssertEqual(try shen("(arity read-unit-string)"), "1")
+        XCTAssertEqual(try shen("(arity write-string)"), "2")
     }
 
     /// 42.1: `read` at EOF parses a final expression with no trailing newline

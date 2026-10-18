@@ -4,17 +4,17 @@ A from-scratch port of the [Shen programming language](https://shenlanguage.org)
 to Swift, designed to run on macOS **and iOS**.
 
 It is a **tree-walking KLambda interpreter**: it loads the community
-**ShenOSKernel 42.2** `.kl` sources at runtime and interprets them (the release's
+**ShenOSKernel 43.1** `.kl` sources at runtime and interprets them (the release's
 `klambda/` files are vendored byte-for-byte under `Sources/ShenSwift/klambda/` —
-see its `PROVENANCE.md`). This is the kernel upstream shen-scheme 0.50 ships.
+see its `PROVENANCE.md`). This is the kernel upstream shen-scheme 0.51 ships.
 Because nothing is compiled or code-generated on device, it runs inside the iOS
 sandbox (no JIT, no `dlopen`, no runtime `swiftc`), and supports live
 `(define ...)` at the REPL.
 
-> **Kernel note.** 42.2's `.kl` files contain only `defun`s. `boot()` loads the
-> 16 kernel modules (including `dict.kl`, the hash-table property store, and
+> **Kernel note.** 43.1's `.kl` files contain only `defun`s. `boot()` loads the
+> 17 kernel modules (including `dict.kl`, the hash-table property store, and
 > `init.kl`), installs the host overrides, then calls `(shen.initialise)`.
-> Before 42.2 this port vendored Mark Tarver's *refreshed S41.2* kernel, a
+> Before 43.1 this port vendored Mark Tarver's *refreshed S41.2* kernel, a
 > different lineage with no `shen.initialise`; see `PROVENANCE.md` for the
 > history and the override audit.
 
@@ -38,7 +38,7 @@ sandbox (no JIT, no `dlopen`, no runtime `swiftc`), and supports live
 | `Primitives.swift` | The ~46 KLambda primitives + standard streams |
 | `Printer.swift` | `str` and value formatting |
 | `Boot.swift` | Kernel load + `shen.initialise`, native overrides (`pr`, `hash`), native CLI launcher, public API |
-| `klambda/` | Bundled ShenOSKernel-42.2 `.kl` sources incl. `stlib.kl` (resource) — see `klambda/PROVENANCE.md` |
+| `klambda/` | Bundled ShenOSKernel-43.1 `.kl` sources incl. `stlib.kl` (resource) — see `klambda/PROVENANCE.md` |
 
 ### Key design points
 
@@ -50,7 +50,7 @@ sandbox (no JIT, no `dlopen`, no runtime `swiftc`), and supports live
 - **Native overrides.** Only `pr` (`*hush*` gates stdout only) and `hash` (a
   structural host hash consistent with `=`, which keeps the 42.x shen.dict
   property store fast). `fn`, `get`/`put`, `arity` and the lambda table are the
-  kernel's own 42.2 code.
+  kernel's own 43.1 code.
 - **Deep recursion.** The CLI runs the interpreter on a 512 MB-stack thread so
   non-tail user recursion (e.g. the recursive arm of `append`) does not overflow.
 
@@ -70,7 +70,7 @@ the full kernel + launcher — see *Yggdrasil* below).
 
 ## Standard library
 
-ShenOSKernel 42.2 ships the core standard library precompiled as
+ShenOSKernel 43.1 ships the core standard library precompiled as
 `klambda/stlib.kl`. Pass `--stdlib` (CLI) or `boot(stdlib: true)` (library) to
 load it and call `(stlib.initialise)`; then `filter`, `mapc`, `take`, `drop`,
 `sort`, the `string`/`maths`/`tuple`/`symbol` packages, etc. are available:
@@ -81,7 +81,7 @@ shen-swift --stdlib eval -e "(filter (/. X (> X 2)) [1 2 3 4])"   # -> [3 4]
 
 It stays **opt-in** so a kernel-only boot stays fast (~0.5 s release on Linux);
 loading and initialising `stlib.kl` in this tree-walking interpreter adds ~6 s.
-(Before 42.2 the library was compiled from Tarver's `Lib/StLib` Shen sources at
+(Before 43.1 the library was compiled from Tarver's `Lib/StLib` Shen sources at
 load time, ~25 s.)
 
 ## Library API
@@ -105,7 +105,7 @@ shen-go / shen-rust / shen-julia / ShenScript:
 shen-swift                      # interactive REPL
 shen-swift eval -e "(+ 1 2)"    # evaluate an expression -> 3
 shen-swift script prog.shen     # run a .shen program
-shen-swift --version            # 42.2 (port ("Swift" "0.1.0") ...)
+shen-swift --version            # 43.1 (port ("Swift" "0.1.0") ...)
 ```
 
 `-q` sets `*hush*`. `eval -e` prints its results through `pr`, so `-q`
@@ -115,17 +115,16 @@ shakes/loads under `-q` behave like shen-go/shen-julia.
 
 ## Status
 
-- Boots **ShenOSKernel 42.2** (16 kernel modules + `shen.initialise`) in
-  ~0.5 s and runs an interactive REPL. `(version)` reports `"42.2"`.
-- Passes the Swift test target — **15/15**, including the kernel-boot test and
-  42.x checks (`fn` after an arity 1 → 0 redefinition, shen.dict `put`/`get`,
-  hash/`=` agreement, the S42 `(head [])` message, `read` at EOF without a
-  trailing newline).
-- Passes the 42.2 kernel test suite — **143/143, 100%** (`script runme.shen`
-  in the release's `tests/` directory).
-- **Standard library** from 42.2's precompiled `stlib.kl` under `--stdlib`.
+- Boots **ShenOSKernel 43.1** (17 kernel modules + `shen.initialise`) and runs
+  an interactive REPL. `(version)` reports `"43.1"`.
+- The Swift test target covers kernel boot, public stream callables, 42.x
+  compatibility checks, and `read` at EOF without a trailing newline.
+- The canonical 43.1 kernel suite is hosted by the upstream Shen reference
+  ports; Swift validation covers boot, public stream callables, and focused
+  kernel behavior in `Tests/ShenSwiftTests`.
+- **Standard library** from 43.1's precompiled `stlib.kl` under `--stdlib`.
 - **Yggdrasil** `--shaken` mode calls the slice's `shen.initialise` when it has
-  one; 42.2 slices await the shaker's 42.2 upgrade (pyrex41/yggdrasil#32).
+  one; slices must be shaken from the matching 43.1 kernel.
 - Phase 2 (planned): iOS SwiftUI app target; optional AOT compiler for hot
   paths; native dict overrides per the Shen port performance notes.
 

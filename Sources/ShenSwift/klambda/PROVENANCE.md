@@ -1,23 +1,21 @@
 # Kernel provenance
 
-These KLambda (`.kl`) sources are the community **ShenOSKernel 42.2** release,
-the kernel shipped by upstream shen-scheme 0.50. They are vendored
-**byte-for-byte** from the release tarball's `klambda/` directory (all 23
+These KLambda (`.kl`) sources are the community **ShenOSKernel 43.1** release,
+the kernel shipped by upstream shen-scheme 0.51. They are vendored
+**byte-for-byte** from the release tag's `klambda/` directory (all 24
 files), together with the release's `LICENSE.txt`.
 
 - **Repository:** <https://github.com/Shen-Language/shen-sources>
-- **Tag:** `shen-42.2`
-- **Commit:** `73507e069fe147aefb728d632c4ce40bc6a7b314`
-- **Release asset:** `ShenOSKernel-42.2.tar.gz`
-- **Asset SHA-256:** `1d02273003654d34ec020ae67cb214ecec410dee3350419ff807d82b652678d8`
-  (the checksum pinned in shen-scheme 0.50's Makefile)
-- **Extracted from:** `ShenOSKernel-42.2/klambda/`
-- `(version)` → `"42.2"` (set by `shen.initialise-environment` in `init.kl`)
+- **Tag:** `shen-43.1`
+- **Commit:** `715824a52b55e9c81a9501df8548ff3edd8411f5`
+- **Release asset:** `ShenOSKernel-43.1.tar.gz`
+- **Asset SHA-256:** `900eedef44f440af78f9395ed06e689ce1604546fc309f5bc7c8bc84cc651920`
+- **Extracted from:** `ShenOSKernel-43.1/klambda/`
+- `(version)` → `"43.1"` (set by `shen.initialise-environment` in `init.kl`)
 
 ## Lineage choice
 
-Option (a) of pyrex41/shen-swift#7 (umbrella pyrex41/bifrost#26,
-pyrex41/yggdrasil#32): **adopt ShenOSKernel-42.2 wholesale**. This replaces the
+**Adopt ShenOSKernel-43.1 wholesale.** This replaces the
 refreshed S41.2 kernel (Mark Tarver's lineage, mirror `pyrex41/shen-s41.1` tag
 `s41.2-pristine-20260711`, kept below as history). This port never vendored
 Tarver's S42.0, so the upgrade also brings in the 42.0 changes (lambda-form
@@ -27,8 +25,8 @@ newline in the `(head [])` message).
 Structural consequences for the boot (see `Boot.swift`):
 
 - Every `.kl` file holds only `defun`s; there are no top-level forms to order.
-  `boot()` loads the 16 kernel modules (`sys writer core reader declarations
-  toplevel macros load prolog sequent track t-star yacc types dict init`),
+  `boot()` loads the 17 kernel modules (`sys writer core reader declarations
+  toplevel macros load prolog sequent track t-star yacc types dict compiler init`),
   installs the host overrides, then calls `(shen.initialise)`.
 - `dict.kl` is back: `*property-vector*` is a `shen.dict` (hash buckets), which
   also holds the arity table and lambda forms.
@@ -41,7 +39,7 @@ Structural consequences for the boot (see `Boot.swift`):
   `extension-launcher.kl`'s command surface.
 - The S41.2 `backend.kl` (`cl.*` Common-Lisp backend) is gone.
 
-## Host override audit (42.x)
+## Host override audit (43.1)
 
 | Override | Status |
 |----------|--------|
@@ -51,9 +49,13 @@ Structural consequences for the boot (see `Boot.swift`):
 | `pr` | Kept: `*hush*` gates stdout only; explicit file streams still write (Yggdrasil shakes run under `-q`). |
 | reader / `macroexpand` / `shen.macroexpand-h` / `shen.try-parse` | Not overridden, so the 42.1 source-form handler order and 4-argument `shen.macroexpand-h` are the kernel's. |
 | stdin `read-byte` | Returns -1 once at EOF when a partial line is pending, so a final line without a trailing newline is read (42.1); EOF at a line boundary still exits the REPL. File streams return -1 at EOF. |
-| `shen.char-stoutput?` / `shen.char-stinput?` | `false` (byte-oriented port), unchanged. |
+| `char-stream?` | `false` for byte-oriented Swift streams. |
+| `read-unit-string` / `write-string` | Public 43.1 callables are defined for metadata and direct use; byte input/output is supported. |
 
-## Per-file sha256 (as vendored)
+## Historical 42.2 per-file sha256
+
+The following manifest is retained as historical evidence from the previous
+42.2 baseline; the current files above are pinned to the 43.1 release asset.
 
 ```
 9c0ef84f269a23cbdde12918f12e3619d8a186893cfc029f5e30cc7807e200e1  core.kl

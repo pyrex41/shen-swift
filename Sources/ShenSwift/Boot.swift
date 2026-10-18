@@ -1,8 +1,8 @@
 import Foundation
 
 extension Interp {
-    /// The 16 kernel modules of the community ShenOSKernel-42.2 release
-    /// (shen-sources tag `shen-42.2` — see klambda/PROVENANCE.md). Every file
+    /// The 17 kernel modules of the community ShenOSKernel-43.1 release
+    /// (shen-sources tag `shen-43.1` — see klambda/PROVENANCE.md). Every file
     /// holds only `defun`s, so their order is not significant; all runtime
     /// state (globals, the `*property-vector*` shen.dict, the arity table, the
     /// lambda forms, the type signatures) is established afterwards by
@@ -15,7 +15,7 @@ extension Interp {
     /// natively by `runLauncher`, matching the extension's command surface.
     static let kernelFiles = [
         "sys", "writer", "core", "reader", "declarations", "toplevel", "macros",
-        "load", "prolog", "sequent", "track", "t-star", "yacc", "types", "dict",
+        "load", "prolog", "sequent", "track", "t-star", "yacc", "types", "dict", "compiler",
         "init",
     ]
 
@@ -58,12 +58,12 @@ extension Interp {
 
     /// Boots the full Shen kernel. Call once before evaluating user code.
     ///
-    /// ShenOSKernel 42.2 boot sequence (doc/porting.md, shen-scheme 0.50):
+    /// ShenOSKernel 43.1 boot sequence (doc/porting.md, shen-scheme 0.51):
     /// load every module's defuns, install the host overrides, then call
     /// `(shen.initialise)`, which builds the shen.dict property store, the
     /// arity and lambda-form tables, the macro and source-form-handler
     /// registries and the kernel's type signatures, and sets `*version*` to
-    /// "42.2". Unlike the refreshed S41.2 kernel this port used to vendor,
+    /// "43.1". Unlike the refreshed S41.2 kernel this port used to vendor,
     /// there are no top-level forms to sequence.
     ///
     /// When `stdlib` is true, the precompiled standard library (`stlib.kl`) is
