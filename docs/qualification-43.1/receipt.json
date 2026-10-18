@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-18",
+  "source_commit": "53e4cc82a611b81498f914f8891422c06968c183",
+  "build": {
+    "command": [
+      "swift",
+      "build",
+      "-c",
+      "release"
+    ],
+    "exit_code": 0,
+    "binary_mtime": "2026-10-18T15:37:57-0500",
+    "bundled_release_kl_files": 23,
+    "cl_compiler_present": false
+  },
+  "canonical": {
+    "command": [
+      ".build/release/shen-swift",
+      "script",
+      "runme.shen"
+    ],
+    "cwd": "official release tests directory",
+    "kernel_source": "fresh executable bundled resources",
+    "passed": 154,
+    "failed": 0,
+    "report_groups": 40,
+    "log": "canonical.log.gz",
+    "sha256": "028a65cbcb55736f58e2e265d8aeda4ec56d81aab498f070195454d61064fda0"
+  },
+  "xctest": "UNAVAILABLE: installed Command Line Tools cannot resolve XCTest"
+}
