@@ -12,7 +12,7 @@ sandbox (no JIT, no `dlopen`, no runtime `swiftc`), and supports live
 `(define ...)` at the REPL.
 
 > **Kernel note.** 43.1's `.kl` files contain only `defun`s. `boot()` loads the
-> 17 kernel modules (including `dict.kl`, the hash-table property store, and
+> 16 runtime kernel modules (including `dict.kl`, the hash-table property store, and
 > `init.kl`), installs the host overrides, then calls `(shen.initialise)`.
 > Before 43.1 this port vendored Mark Tarver's *refreshed S41.2* kernel, a
 > different lineage with no `shen.initialise`; see `PROVENANCE.md` for the
@@ -115,7 +115,7 @@ shakes/loads under `-q` behave like shen-go/shen-julia.
 
 ## Status
 
-- Boots **ShenOSKernel 43.1** (17 kernel modules + `shen.initialise`) and runs
+- Boots **ShenOSKernel 43.1** (16 runtime kernel modules + `shen.initialise`) and runs
   an interactive REPL. `(version)` reports `"43.1"`.
 - The Swift test target covers kernel boot, public stream callables, 42.x
   compatibility checks, and `read` at EOF without a trailing newline.

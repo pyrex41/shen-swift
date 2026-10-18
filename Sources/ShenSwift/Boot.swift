@@ -93,7 +93,7 @@ extension Interp {
         if stdlib { try loadStdlib(verbose: verbose) }
     }
 
-    /// Loads the precompiled standard library shipped with ShenOSKernel-42.2
+    /// Loads the precompiled standard library shipped with ShenOSKernel-43.1
     /// (`klambda/stlib.kl`) on top of an already-booted kernel, then calls
     /// `(stlib.initialise)` to install its package information, arities,
     /// lambda forms, macros, synonyms, datatypes and types (doc/port-upgrades.md,
