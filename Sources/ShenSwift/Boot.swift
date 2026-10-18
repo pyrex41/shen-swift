@@ -1,7 +1,7 @@
 import Foundation
 
 extension Interp {
-    /// The 17 kernel modules of the community ShenOSKernel-43.1 release
+    /// The 16 runtime kernel modules of the community ShenOSKernel-43.1 release
     /// (shen-sources tag `shen-43.1` — see klambda/PROVENANCE.md). Every file
     /// holds only `defun`s, so their order is not significant; all runtime
     /// state (globals, the `*property-vector*` shen.dict, the arity table, the
@@ -15,7 +15,7 @@ extension Interp {
     /// natively by `runLauncher`, matching the extension's command surface.
     static let kernelFiles = [
         "sys", "writer", "core", "reader", "declarations", "toplevel", "macros",
-        "load", "prolog", "sequent", "track", "t-star", "yacc", "types", "dict", "compiler",
+        "load", "prolog", "sequent", "track", "t-star", "yacc", "types", "dict",
         "init",
     ]
 

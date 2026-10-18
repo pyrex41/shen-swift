@@ -2,7 +2,7 @@
 
 These KLambda (`.kl`) sources are the community **ShenOSKernel 43.1** release,
 the kernel shipped by upstream shen-scheme 0.51. They are vendored
-**byte-for-byte** from the release tag's `klambda/` directory (all 24
+**byte-for-byte** from the release tag's `klambda/` directory (all 23
 files), together with the release's `LICENSE.txt`.
 
 - **Repository:** <https://github.com/Shen-Language/shen-sources>
@@ -25,8 +25,8 @@ newline in the `(head [])` message).
 Structural consequences for the boot (see `Boot.swift`):
 
 - Every `.kl` file holds only `defun`s; there are no top-level forms to order.
-  `boot()` loads the 17 kernel modules (`sys writer core reader declarations
-  toplevel macros load prolog sequent track t-star yacc types dict compiler init`),
+  `boot()` loads the 16 runtime kernel modules (`sys writer core reader declarations
+  toplevel macros load prolog sequent track t-star yacc types dict init`),
   installs the host overrides, then calls `(shen.initialise)`.
 - `dict.kl` is back: `*property-vector*` is a `shen.dict` (hash buckets), which
   also holds the arity table and lambda forms.
