@@ -50,7 +50,7 @@ Structural consequences for the boot (see `Boot.swift`):
 | reader / `macroexpand` / `shen.macroexpand-h` / `shen.try-parse` | Not overridden, so the 42.1 source-form handler order and 4-argument `shen.macroexpand-h` are the kernel's. |
 | stdin `read-byte` | Returns -1 once at EOF when a partial line is pending, so a final line without a trailing newline is read (42.1); EOF at a line boundary still exits the REPL. File streams return -1 at EOF. |
 | `char-stream?` | `false` for byte-oriented Swift streams. |
-| `read-unit-string` / `write-string` | Public 43.1 callables are defined for metadata and direct use; byte input/output is supported. |
+| `read-unit-string` / `write-string` | Public 43.1 callables are defined for metadata. `read-unit-string` reports a catchable unsupported-operation error before consuming byte streams; `write-string` writes UTF-8 bytes and returns its string. |
 
 ## Historical 42.2 per-file sha256
 

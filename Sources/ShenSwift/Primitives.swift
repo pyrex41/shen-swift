@@ -191,13 +191,13 @@ extension Interp {
             return .bool(false)
         }
         defPrim("read-unit-string", 1) { a in
-            guard case .stream(let s) = a[0], s.direction == .input,
-                  let read = s.readByte else {
-                throw KLError("read-unit-string requires open input stream")
+            guard case .stream = a[0] else {
+                throw KLError("read-unit-string expects a stream")
             }
-            let byte = read()
-            guard byte >= 0 else { throw KLError("read-unit-string: end of stream") }
-            return .str(String(UnicodeScalar(byte & 0xff)!))
+            // Swift exposes byte-oriented streams, so char-stream? is false.
+            // Reject this unsupported character operation before touching the
+            // stream; callers can catch the error and continue with read-byte.
+            throw KLError("read-unit-string unsupported for byte-oriented stream")
         }
         defPrim("write-string", 2) { a in
             guard case .str(let text) = a[0] else {
