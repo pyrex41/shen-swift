@@ -89,13 +89,13 @@ final class BootTests: XCTestCase {
         let interp = Interp()
         try interp.boot()
         // A kernel global established by initialise-environment.
-        XCTAssertEqual(Printer.show(try interp.evalKL("(value *version*)")), "\"43.1\"")
+        XCTAssertEqual(Printer.show(try interp.evalKL("(value *version*)")), "\"43.2\"")
         // A kernel-defined function (reverse) works end to end.
         XCTAssertEqual(Printer.show(try interp.evalKL("(reverse (cons 1 (cons 2 (cons 3 ()))))")),
                        "(3 2 1)")
     }
 
-    /// ShenOSKernel 43.1 behaviour the port's boot and overrides must preserve.
+    /// ShenOSKernel 43.2 behaviour the port's boot and overrides must preserve.
     func testKernel43Behaviour() throws {
         let interp = Interp()
         try interp.boot()

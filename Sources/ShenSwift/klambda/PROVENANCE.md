@@ -1,21 +1,20 @@
 # Kernel provenance
 
-These KLambda (`.kl`) sources are the community **ShenOSKernel 43.1** release,
-the kernel shipped by upstream shen-scheme 0.51. They are vendored
+These KLambda (`.kl`) sources are the community **ShenOSKernel 43.2** release. They are vendored
 **byte-for-byte** from the release tag's `klambda/` directory (all 23
 files), together with the release's `LICENSE.txt`.
 
 - **Repository:** <https://github.com/Shen-Language/shen-sources>
-- **Tag:** `shen-43.1`
-- **Commit:** `715824a52b55e9c81a9501df8548ff3edd8411f5`
-- **Release asset:** `ShenOSKernel-43.1.tar.gz`
-- **Asset SHA-256:** `900eedef44f440af78f9395ed06e689ce1604546fc309f5bc7c8bc84cc651920`
-- **Extracted from:** `ShenOSKernel-43.1/klambda/`
-- `(version)` → `"43.1"` (set by `shen.initialise-environment` in `init.kl`)
+- **Tag:** `shen-43.2` (tag object `7b7563e5`)
+- **Commit:** `e6947f507ebc`
+- **Release asset:** `ShenOSKernel-43.2.tar.gz`
+- **Asset SHA-256:** `23c71508f0de24785e1f127ea4fab440081904d81c463090bc642ee840417f32`
+- **Extracted from:** `ShenOSKernel-43.2/klambda/`
+- `(version)` → `"43.2"` (set by `shen.initialise-environment` in `init.kl`)
 
 ## Lineage choice
 
-**Adopt ShenOSKernel-43.1 wholesale.** This replaces the
+**Adopt ShenOSKernel-43.2 wholesale.** This replaces the
 refreshed S41.2 kernel (Mark Tarver's lineage, mirror `pyrex41/shen-s41.1` tag
 `s41.2-pristine-20260711`, kept below as history). This port never vendored
 Tarver's S42.0, so the upgrade also brings in the 42.0 changes (lambda-form
@@ -39,7 +38,11 @@ Structural consequences for the boot (see `Boot.swift`):
   `extension-launcher.kl`'s command surface.
 - The S41.2 `backend.kl` (`cl.*` Common-Lisp backend) is gone.
 
-## Host override audit (43.1)
+## Host override audit (43.2)
+
+43.2 changes `shen.by-hypothesis` and `shen.search-user-datatypes` (new helpers
+`shen.by-hypothesis-h`, `shen.search-user-datatypes-h`, empty-list guard); this
+port overrides neither.
 
 | Override | Status |
 |----------|--------|
@@ -50,12 +53,12 @@ Structural consequences for the boot (see `Boot.swift`):
 | reader / `macroexpand` / `shen.macroexpand-h` / `shen.try-parse` | Not overridden, so the 42.1 source-form handler order and 4-argument `shen.macroexpand-h` are the kernel's. |
 | stdin `read-byte` | Returns -1 once at EOF when a partial line is pending, so a final line without a trailing newline is read (42.1); EOF at a line boundary still exits the REPL. File streams return -1 at EOF. |
 | `char-stream?` | `false` for byte-oriented Swift streams. |
-| `read-unit-string` / `write-string` | Public 43.1 callables are defined for metadata. `read-unit-string` reports a catchable unsupported-operation error before consuming byte streams; `write-string` writes UTF-8 bytes and returns its string. |
+| `read-unit-string` / `write-string` | Public 43.2 callables are defined for metadata. `read-unit-string` reports a catchable unsupported-operation error before consuming byte streams; `write-string` writes UTF-8 bytes and returns its string. |
 
 ## Historical 42.2 per-file sha256
 
 The following manifest is retained as historical evidence from the previous
-42.2 baseline; the current files above are pinned to the 43.1 release asset.
+42.2 baseline; the current files above are pinned to the 43.2 release asset.
 
 ```
 9c0ef84f269a23cbdde12918f12e3619d8a186893cfc029f5e30cc7807e200e1  core.kl
