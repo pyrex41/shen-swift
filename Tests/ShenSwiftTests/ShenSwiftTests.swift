@@ -95,6 +95,15 @@ final class BootTests: XCTestCase {
                        "(3 2 1)")
     }
 
+    /// REPL EOF follows Shen/JIT: stdin reads -1 for programs; only the REPL's
+    /// own read (shen-swift.repl-read) exits.
+    func testReplReadIsTheOnlyEOFExit() throws {
+        let interp = Interp()
+        try interp.boot()
+        XCTAssertNotNil(interp.intern("shen-swift.repl-read").fn)
+        XCTAssertNotNil(interp.intern("shen-swift.exit").fn)
+    }
+
     /// ShenOSKernel 43.2 behaviour the port's boot and overrides must preserve.
     func testKernel43Behaviour() throws {
         let interp = Interp()

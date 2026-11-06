@@ -121,6 +121,24 @@ extension Interp {
     /// `macroexpand` or `shen.macroexpand-h`, so the 42.1 source-form handler
     /// order is the kernel's.
     func installNativeOverrides() {
+        // REPL EOF, following Shen/JIT: only the REPL's own read checks for EOF,
+        // on the first byte of a line; a program reading (stinput) sees -1 or the
+        // reader's "empty stream" error. The REPL then exits at its next prompt.
+        if intern("shen.read-evaluate-print").fn != nil {
+            _ = try? evalKL("""
+            (defun shen-swift.repl-read (Stream)
+              (let Byte (shen.my-read-byte Stream)
+                (if (= Byte -1)
+                    (do (nl 1) (shen-swift.exit 0))
+                    (shen.read-loop Stream Byte () (lambda X (shen.return? X))))))
+            (defun shen.read-evaluate-print ()
+              (let Package (value shen.*package*)
+                (let Lineread (shen.package-user-input Package (shen-swift.repl-read (stinput)))
+                  (let History (shen.update-history)
+                    (shen.evaluate-lineread Lineread History (value shen.*tc*))))))
+            """)
+        }
+
         // `(hash X Bound)` — 42.x keeps the property store, the arity table and
         // the lambda forms in a portable shen.dict whose every access hashes the
         // key. The kernel's hash explodes the key's printed form and multiplies

@@ -51,7 +51,7 @@ port overrides neither.
 | `hash` | **New native** (doc/port-performance.md "Hashing"): deterministic FNV-1a structural hash consistent with `=` (1 / 1.0, `true` / `(intern "true")`, equal lists/vectors); 0 maps to 1 as in the kernel; non-positive or non-integer bounds defer to the kernel definition. Installed before `shen.initialise` builds the dict. |
 | `pr` | Kept: `*hush*` gates stdout only; explicit file streams still write (Yggdrasil shakes run under `-q`). |
 | reader / `macroexpand` / `shen.macroexpand-h` / `shen.try-parse` | Not overridden, so the 42.1 source-form handler order and 4-argument `shen.macroexpand-h` are the kernel's. |
-| stdin `read-byte` | Returns -1 once at EOF when a partial line is pending, so a final line without a trailing newline is read (42.1); EOF at a line boundary still exits the REPL. File streams return -1 at EOF. |
+| stdin `read-byte` / REPL EOF | stdin `read-byte` returns -1 at every EOF, for programs and the reader alike. `shen.read-evaluate-print` is overridden (Shen/JIT design) to use `shen-swift.repl-read`, whose first-byte EOF check prints a newline and exits 0; File streams return -1 at EOF. |
 | `char-stream?` | `false` for byte-oriented Swift streams. |
 | `read-unit-string` / `write-string` | Public 43.2 callables are defined for metadata. `read-unit-string` reports a catchable unsupported-operation error before consuming byte streams; `write-string` writes UTF-8 bytes and returns its string. |
 

@@ -9,26 +9,12 @@ extension Interp {
         stdoutStream = out
 
         let inp = KLStream(direction: .input)
-        // End of standard input. The 42.1+ reader (shen.read-loop) parses a
-        // final line that has no trailing newline when read-byte reports -1, so
-        // if bytes are pending on the current line we return -1 once. EOF at a
-        // line boundary (or a second EOF) exits cleanly instead: the kernel REPL
-        // would otherwise loop forever on "empty stream" errors.
-        var pendingLine = false
+        // End of standard input reads as -1 every time, as for any program.
+        // Only the REPL's own read exits at EOF (shen-swift.repl-read, Boot.swift).
         inp.readByte = {
             fflush(stdout)         // make sure any prompt is visible first
             let c = getchar()      // buffered; returns EOF (-1) at end of input
-            if c == -1 {
-                if pendingLine {
-                    pendingLine = false
-                    return -1
-                }
-                putchar(10)
-                fflush(stdout)
-                exit(0)
-            }
-            pendingLine = (c != 10)
-            return Int(c)
+            return c == -1 ? -1 : Int(c)
         }
         stdinStream = inp
     }
@@ -173,6 +159,11 @@ extension Interp {
                 throw KLError("read-byte: not an input stream")
             }
             return .int(r())
+        }
+        defPrim("shen-swift.exit", 1) { a in
+            fflush(stdout)
+            if case .int(let n) = a[0] { exit(Int32(truncatingIfNeeded: n)) }
+            exit(0)
         }
         defPrim("open", 2) { [weak self] a in try self!.openFile(a) }
         defPrim("close", 1) { a in
