@@ -180,8 +180,8 @@ extension Interp {
             return .empty
         }
 
-        // ---- Public character-stream interfaces (ShenOSKernel 43.1) ----
-        // Swift exposes byte-oriented streams.  43.1 still requires these
+        // ---- Public character-stream interfaces (ShenOSKernel 43.2) ----
+        // Swift exposes byte-oriented streams.  43.2 still requires these
         // public callables to exist so the kernel can install their arities,
         // callable forms, and type signatures during initialization.
         defPrim("char-stream?", 1) { a in
