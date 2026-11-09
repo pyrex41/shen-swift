@@ -1,20 +1,20 @@
 # Kernel provenance
 
-These KLambda (`.kl`) sources are the community **ShenOSKernel 43.2** release. They are vendored
+These KLambda (`.kl`) sources are the community **ShenOSKernel 43.4** release. They are vendored
 **byte-for-byte** from the release tag's `klambda/` directory (all 23
 files), together with the release's `LICENSE.txt`.
 
 - **Repository:** <https://github.com/Shen-Language/shen-sources>
-- **Tag:** `shen-43.2` (tag object `7b7563e5`)
-- **Commit:** `e6947f507ebc`
-- **Release asset:** `ShenOSKernel-43.2.tar.gz`
-- **Asset SHA-256:** `23c71508f0de24785e1f127ea4fab440081904d81c463090bc642ee840417f32`
-- **Extracted from:** `ShenOSKernel-43.2/klambda/`
-- `(version)` → `"43.2"` (set by `shen.initialise-environment` in `init.kl`)
+- **Tag:** `shen-43.4` (tag object `40fd335893cf7caf4c3a285e122ea0de06696430`)
+- **Commit:** `f34b307b490880eedcfe1f5e5d3cc24ca3d2602e`
+- **Release asset:** `ShenOSKernel-43.4.tar.gz`
+- **Asset SHA-256:** `15e7972e6bf0cd65d37c2eba85750b8839d2dbadda41027eae0c88e5017a2756`
+- **Extracted from:** `ShenOSKernel-43.4/klambda/`
+- `(version)` → `"43.4"` (set by `shen.initialise-environment` in `init.kl`)
 
 ## Lineage choice
 
-**Adopt ShenOSKernel-43.2 wholesale.** This replaces the
+**Adopt ShenOSKernel-43.4 wholesale.** This replaces the
 refreshed S41.2 kernel (Mark Tarver's lineage, mirror `pyrex41/shen-s41.1` tag
 `s41.2-pristine-20260711`, kept below as history). This port never vendored
 Tarver's S42.0, so the upgrade also brings in the 42.0 changes (lambda-form
@@ -38,11 +38,16 @@ Structural consequences for the boot (see `Boot.swift`):
   `extension-launcher.kl`'s command surface.
 - The S41.2 `backend.kl` (`cl.*` Common-Lisp backend) is gone.
 
-## Host override audit (43.2)
+## Host override audit (43.4)
 
-43.2 changes `shen.by-hypothesis` and `shen.search-user-datatypes` (new helpers
+43.2 changed `shen.by-hypothesis` and `shen.search-user-datatypes` (new helpers
 `shen.by-hypothesis-h`, `shen.search-user-datatypes-h`, empty-list guard); this
 port overrides neither.
+43.3/43.4 changed 17 of 22 files (defuns 1117 -> 1126; stlib.kl now calls
+`shen.declare-with-signature`, `shen.update-lambda-table/precompiled`,
+`shen.precompiled-function?`). The port's overrides (`hash`, `pr`,
+`shen.read-evaluate-print`, `shen.my-read-byte` use) were compared against 43.4:
+their kernel definitions are unchanged. Kernel and stlib.kl vendored together.
 
 | Override | Status |
 |----------|--------|
@@ -53,12 +58,12 @@ port overrides neither.
 | reader / `macroexpand` / `shen.macroexpand-h` / `shen.try-parse` | Not overridden, so the 42.1 source-form handler order and 4-argument `shen.macroexpand-h` are the kernel's. |
 | stdin `read-byte` / REPL EOF | stdin `read-byte` returns -1 at every EOF, for programs and the reader alike. `shen.read-evaluate-print` is overridden (Shen/JIT design) to use `shen-swift.repl-read`, whose first-byte EOF check prints a newline and exits 0; File streams return -1 at EOF. |
 | `char-stream?` | `false` for byte-oriented Swift streams. |
-| `read-unit-string` / `write-string` | Public 43.2 callables are defined for metadata. `read-unit-string` reports a catchable unsupported-operation error before consuming byte streams; `write-string` writes UTF-8 bytes and returns its string. |
+| `read-unit-string` / `write-string` | Public 43.4 callables are defined for metadata. `read-unit-string` reports a catchable unsupported-operation error before consuming byte streams; `write-string` writes UTF-8 bytes and returns its string. |
 
 ## Historical 42.2 per-file sha256
 
 The following manifest is retained as historical evidence from the previous
-42.2 baseline; the current files above are pinned to the 43.2 release asset.
+42.2 baseline; the current files above are pinned to the 43.4 release asset.
 
 ```
 9c0ef84f269a23cbdde12918f12e3619d8a186893cfc029f5e30cc7807e200e1  core.kl
